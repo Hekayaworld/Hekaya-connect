@@ -1,0 +1,21 @@
+{
+  "name": "hekaya-connect",
+  "version": "1.0.0",
+  "description": "Hekaya Connect — live audience phones for a 40-seat theatre",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/simulate-show.js"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
