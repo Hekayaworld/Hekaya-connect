@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0a10">
+<title>Hekaya Connect · Control</title>
+<style>
+  :root {
+    --ink: #0b0a10; --ink-2: #14121b; --ink-3: #1c1a25; --ink-4: #252231; --line: #2a2735;
+    --text: #f4efe6; --muted: #9b958a; --dim: #5f5a52;
+    --gold: #d9a441; --gold-2: #f2c76b; --ok: #4fd18b; --warn: #e0a33a; --danger: #ff6b5e; --violet: #8a6bff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body { background: var(--ink); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans Arabic", sans-serif; font-size: 14px; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  input, textarea, select { font: inherit; color: var(--text); }
+
+  header { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--ink-2); position: sticky; top: 0; z-index: 20; }
+  .brand { display: flex; flex-direction: column; }
+  .brand small { color: var(--gold); letter-spacing: .3em; font-size: 10px; text-transform: uppercase; }
+  .brand b { font-size: 17px; }
+  .count { display: flex; align-items: center; gap: 10px; font-variant-numeric: tabular-nums; background: var(--ink-3); border: 1px solid var(--line); border-radius: 12px; padding: 6px 14px; }
+  .count .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+  .count b { font-size: 26px; line-height: 1; }
+  .count span { color: var(--muted); }
+  .net { color: var(--muted); font-size: 12px; }
+  .net b { color: var(--text); }
+  .spacer { flex: 1; }
+  .now { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+  .now .chip { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); }
+  .now b { color: var(--text); font-weight: 600; }
+  .link-dot { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+  .link-dot i { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+  .link-dot.ok i { background: var(--ok); }
+
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 470px; gap: 18px; padding: 18px; max-width: 1500px; margin: 0 auto; align-items: start; }
+  @media (max-width: 1080px) { main { grid-template-columns: 1fr; } }
+  .stack { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .panel { background: var(--ink-2); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+  .panel h2 { margin: 0 0 4px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 12px; line-height: 1.45; }
+
+  /* Seat map */
+  .stage-bar { height: 24px; border-radius: 8px 8px 40px 40px / 8px 8px 18px 18px; background: linear-gradient(180deg, #2a2230, #1a1620); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 10px; letter-spacing: .4em; color: var(--muted); margin-bottom: 14px; }
+  .map { display: flex; flex-direction: column; gap: 8px; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .row-l { width: 18px; color: var(--muted); font-weight: 700; text-align: center; flex: none; }
+  .seats { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; flex: 1; }
+  .seat { aspect-ratio: 1.15; border-radius: 10px; position: relative; background: var(--ink-3); border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: var(--dim); font-variant-numeric: tabular-nums; padding: 0; overflow: hidden; }
+  .seat:hover { border-color: #4a4558; }
+  .seat.online { border-color: var(--ok); color: var(--text); }
+  .seat.lost { border-color: var(--warn); border-style: dashed; color: var(--warn); }
+  .seat.sel { outline: 3px solid var(--gold-2); outline-offset: 2px; }
+  .seat .fill { position: absolute; inset: 3px; border-radius: 7px; opacity: 0; }
+  .seat.online .fill { opacity: 1; }
+  .seat.preview:not(.online) .fill { opacity: .2; }
+  .seat .n { position: relative; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  .seat .ping { position: absolute; bottom: 3px; left: 0; right: 0; text-align: center; font-size: 9px; font-weight: 600; color: rgba(255,255,255,.7); text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+  .seat .ping.slow { color: var(--warn); } .seat .ping.bad { color: var(--danger); }
+  .seat .badge { position: absolute; top: 2px; right: 4px; font-size: 11px; }
+  .seat .meterbar { position: absolute; left: 3px; right: 3px; bottom: 3px; height: 4px; border-radius: 2px; background: var(--gold); transform-origin: left; transform: scaleX(0); transition: transform .2s; }
+  .legend { display: flex; gap: 16px; margin-top: 12px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; border: 2px solid var(--line); }
+  .legend .l-on::before { border-color: var(--ok); } .legend .l-lost::before { border-color: var(--warn); border-style: dashed; }
+
+  /* Seat drawer */
+  .drawer { display: none; margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .drawer.on { display: block; }
+  .drawer-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .drawer-h b { font-size: 22px; }
+  .pill { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: var(--ink-4); color: var(--muted); }
+  .pill.ok { background: rgba(79,209,139,.15); color: var(--ok); } .pill.warn { background: rgba(224,163,58,.15); color: var(--warn); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; background: var(--ink-3); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 14px; }
+  .tabs button { flex: 1; height: 38px; border: 0; border-radius: 9px; background: none; font-weight: 700; font-size: 13px; color: var(--muted); }
+  .tabs button.on { background: var(--text); color: var(--ink); }
+  .tab { display: none; flex-direction: column; gap: 14px; }
+  .tab.on { display: flex; }
+  .card { background: var(--ink-3); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  .card h3 { margin: 0 0 10px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .card h3 .k { margin-left: auto; font: 600 10px ui-monospace, Menlo, monospace; color: var(--dim); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+  .field { margin-bottom: 10px; }
+  .field > .lbl { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  .field .val { color: var(--text); font-variant-numeric: tabular-nums; }
+  .in { width: 100%; height: 40px; padding: 0 12px; background: var(--ink); border: 1px solid var(--line); border-radius: 10px; outline: none; }
+  textarea.in { height: 72px; padding: 10px 12px; resize: vertical; line-height: 1.4; }
+  .in:focus { border-color: var(--gold); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .btn { height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--ink-4); padding: 0 14px; font-weight: 700; white-space: nowrap; }
+  .btn:hover { border-color: #4a4558; }
+  .btn.primary { background: var(--gold); color: #1b1305; border-color: var(--gold); }
+  .btn.go { background: var(--ok); color: #062814; border-color: var(--ok); }
+  .btn.red { background: #e2283c; color: #fff; border-color: #e2283c; }
+  .btn.danger { color: var(--danger); }
+  .btn.big { height: 50px; font-size: 15px; }
+  .btn.wide { width: 100%; }
+  .btn[disabled] { opacity: .4; cursor: default; }
+  .actions { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+  .actions .btn.primary, .actions .btn.go, .actions .btn.red { flex: 1; }
+
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .sw { height: 54px; border-radius: 11px; border: 2px solid transparent; display: flex; align-items: flex-end; justify-content: space-between; padding: 6px 8px; font-size: 12px; font-weight: 800; }
+  .sw kbd { font: 600 10px ui-monospace, Menlo, monospace; opacity: .7; }
+  .sw.active { border-color: var(--text); box-shadow: 0 0 0 3px rgba(242,199,107,.35); }
+  .dots { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dot { width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--line); padding: 0; }
+  .dot.on { border-color: var(--text); box-shadow: 0 0 0 2px rgba(242,199,107,.5); }
+  .seg { display: flex; flex-wrap: wrap; gap: 5px; }
+  .seg button { height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--ink-4); font-size: 12px; font-weight: 700; }
+  .seg button.on { background: var(--text); color: var(--ink); border-color: var(--text); }
+  input[type=range] { width: 100%; accent-color: var(--gold); }
+  input[type=color] { width: 44px; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--ink); padding: 3px; }
+  .chk { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; margin: 6px 0 10px; }
+  .chk input { accent-color: var(--gold); width: 16px; height: 16px; }
+  .opt-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 6px; align-items: center; }
+  .opt-row .dots .dot { width: 22px; height: 22px; border-radius: 6px; }
+  .prize-row { display: grid; grid-template-columns: 1fr 70px; gap: 8px; margin-bottom: 6px; }
+  .templates { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .templates button { height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--ink-4); font-size: 12px; }
+  .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
+  .thumbs button { aspect-ratio: 1; border-radius: 8px; border: 2px solid var(--line); padding: 0; overflow: hidden; background: #000; }
+  .thumbs button.on { border-color: var(--gold-2); }
+  .thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* Live panel */
+  .live-empty { color: var(--dim); font-size: 13px; }
+  .live-h { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+  .barrow { margin: 10px 0; }
+  .barrow .lab { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 5px; }
+  .bar { height: 16px; border-radius: 8px; background: var(--ink-4); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 8px; transition: width .4s; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  .big-num { font-size: 56px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; }
+  .meter { height: 26px; border-radius: 13px; background: var(--ink-4); overflow: hidden; margin: 10px 0; }
+  .meter i { display: block; height: 100%; background: linear-gradient(90deg, #ffb800, #ff4fa3, #8a2bff); transition: width .25s; }
+
+  .qr { display: flex; gap: 14px; align-items: center; }
+  .qr img { width: 130px; height: 130px; background: #fff; border-radius: 10px; padding: 6px; }
+  .qr code { display: block; word-break: break-all; font-size: 12px; color: var(--gold-2); margin: 4px 0 8px; }
+  .links a { display: block; color: var(--text); margin: 4px 0; font-size: 13px; }
+
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #2d1518; border: 1px solid var(--danger); color: #ffd4cf; padding: 10px 16px; border-radius: 12px; display: none; z-index: 60; max-width: 90vw; }
+  #toast.warn { background: #2b2210; border-color: var(--warn); color: #ffe6b5; }
+  #toast.on { display: block; }
+
+  #gate { position: fixed; inset: 0; background: var(--ink); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  #gate form { width: min(320px, 90vw); text-align: center; }
+  #gate input { width: 100%; height: 56px; font-size: 26px; text-align: center; letter-spacing: .4em; background: var(--ink-3); border: 2px solid var(--line); border-radius: 14px; outline: none; margin: 18px 0 12px; }
+  #gate input:focus { border-color: var(--gold); }
+  #gateErr { color: var(--danger); min-height: 20px; margin-top: 10px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <form id="gateForm">
+    <div class="brand" style="align-items:center"><small>Hekaya World</small><b>Hekaya Connect · Control</b></div>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="Operator PIN">
+    <button class="btn primary wide big" type="submit">Open control</button>
+    <div id="gateErr" role="alert"></div>
+  </form>
+</div>
+
+<header>
+  <div class="brand"><small>Hekaya World</small><b>Hekaya Connect · Control</b></div>
+  <div class="count"><span class="dot"></span><b id="online">0</b><span>/ <span id="max">40</span> connected</span></div>
+  <div class="net" id="netStat">Ping —</div>
+  <div class="spacer"></div>
+  <div class="now">On phones <span class="chip" id="nowChip"></span> <b id="nowText">Waiting screen</b></div>
+  <button class="btn" id="idleBtn" title="Esc">Waiting screen <span style="opacity:.5">Esc</span></button>
+  <button class="btn" id="blackBtn" title="X">Blackout <span style="opacity:.5">X</span></button>
+  <div class="link-dot" id="link"><i></i><span>Offline</span></div>
+</header>
+
+<main>
+  <div class="stack">
+    <section class="panel">
+      <h2>Audience</h2>
+      <div class="sub">Tiles mirror what each phone shows. Click a seat to send it a secret message.</div>
+      <div class="stage-bar">STAGE</div>
+      <div class="map" id="map"></div>
+      <div class="legend"><span class="l-on">Connected</span><span class="l-lost">Signal lost</span><span>Empty</span><span>🤫 secret sent · ✓ seen</span></div>
+
+      <div class="drawer" id="drawer">
+        <div class="drawer-h"><b id="dLabel">—</b><span class="pill" id="dStatus"></span><span class="pill" id="dSecret" style="display:none"></span><span class="spacer" style="flex:1"></span><button class="btn" id="dClose">Close</button></div>
+        <div class="field"><div class="lbl">🤫 Secret message — only this seat sees it</div><textarea class="in" id="secretText" dir="auto" maxlength="280" placeholder="e.g. When the lights go red, stand up and shout “Hekaya!”"></textarea></div>
+        <div class="field"><div class="lbl">Card colour</div><div class="dots" id="secretColour"></div></div>
+        <div class="actions"><button class="btn primary" id="secretSend">Send secret to <span id="dLabel2"></span></button><button class="btn" id="secretClear">Remove from phone</button></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Live <span class="pill" id="liveKind">—</span></h2>
+      <div id="live"><div class="live-empty">Results, scores and controls for the current activity appear here.</div></div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="panel">
+      <div class="tabs" id="tabs">
+        <button data-tab="lights" class="on">Lights</button>
+        <button data-tab="messages">Messages</button>
+        <button data-tab="games">Games</button>
+        <button data-tab="prizes">Prizes</button>
+        <button data-tab="setup">Setup</button>
+      </div>
+
+      <!-- LIGHTS -->
+      <div class="tab on" id="tab-lights">
+        <div class="card">
+          <h3>🔵 Color <span class="k">B R G Y P K W X</span></h3>
+          <div class="swatches" id="swatches"></div>
+          <div class="actions" style="margin-top:8px"><input type="color" id="customColor" value="#ff5fa2" aria-label="Custom colour"><button class="btn" id="sendCustom" style="flex:1">Send custom colour</button></div>
+        </div>
+
+        <div class="card">
+          <h3>🌊 Wave <span class="k">V start · S stop</span></h3>
+          <div class="field"><div class="seg" id="wavePresets"></div></div>
+          <div class="grid2">
+            <div class="field"><div class="lbl">Wave colour</div><div class="dots" id="waveColour"></div></div>
+            <div class="field"><div class="lbl">Background</div><div class="dots" id="waveBase"></div></div>
+          </div>
+          <div class="field"><div class="lbl">Direction</div><div class="seg" id="waveOrder">
+            <button data-v="forward">A01 → E08</button><button data-v="reverse">E08 → A01</button><button data-v="rows">Row by row ↓</button><button data-v="rowsBack">Row by row ↑</button><button data-v="centre">Centre out</button><button data-v="edges">Edges in</button><button data-v="pingpong">Back &amp; forth</button>
+          </div></div>
+          <div class="field"><div class="lbl">Style</div><div class="seg" id="waveMode"><button data-v="flash">Flash — light passes</button><button data-v="fill">Fill — colour sweeps in</button></div></div>
+          <div class="grid2">
+            <div class="field"><div class="lbl">Speed <span class="val" id="waveStepVal"></span></div><input type="range" id="waveStep" min="20" max="600" step="10"></div>
+            <div class="field" id="holdField"><div class="lbl">Glow <span class="val" id="waveHoldVal"></span></div><input type="range" id="waveHold" min="100" max="1500" step="50"></div>
+          </div>
+          <div class="field"><div class="lbl">Repeat <span class="val" id="waveSummary"></span></div><div class="seg" id="waveLoops"><button data-v="1">Once</button><button data-v="2">2×</button><button data-v="3">3×</button><button data-v="0">Loop</button></div></div>
+          <div class="actions"><button class="btn primary big" id="waveGo">Start wave</button><button class="btn big" data-stop>Stop</button></div>
+        </div>
+
+        <div class="card">
+          <h3>✨ Sparkle</h3>
+          <div class="field"><div class="lbl">Colours (pick one or more)</div><div class="dots" id="sparkColours"></div></div>
+          <div class="grid2">
+            <div class="field"><div class="lbl">How many lit <span class="val" id="sparkDensVal"></span></div><input type="range" id="sparkDens" min="5" max="80" step="5" value="25"></div>
+            <div class="field"><div class="lbl">Twinkle speed <span class="val" id="sparkSlotVal"></span></div><input type="range" id="sparkSlot" min="80" max="1200" step="20" value="220"></div>
+          </div>
+          <div class="field"><div class="lbl">Duration</div><div class="seg" id="sparkDur"><button data-v="0" class="on">Until stopped</button><button data-v="5">5 s</button><button data-v="10">10 s</button><button data-v="30">30 s</button></div></div>
+          <div class="actions"><button class="btn primary big" id="sparkGo">Start sparkle</button><button class="btn big" data-stop>Stop</button></div>
+        </div>
+
+        <div class="card">
+          <h3>🎨 Pattern — different seats, different colours</h3>
+          <div class="field"><div class="seg" id="patKind">
+            <button data-v="alternate" class="on">Alternate seats</button><button data-v="rows">By row</button><button data-v="halves">Left / right</button><button data-v="checker">Checkerboard</button><button data-v="random">Random mix</button><button data-v="rainbow">Rainbow</button>
+          </div></div>
+          <div class="field" id="patColField"><div class="lbl">Colours, in order</div><div class="dots" id="patColours"></div></div>
+          <div class="actions"><button class="btn primary big" id="patGo">Apply pattern</button></div>
+        </div>
+      </div>
+
+      <!-- MESSAGES -->
+      <div class="tab" id="tab-messages">
+        <div class="card">
+          <h3>📩 Message — everyone</h3>
+          <div class="templates" id="msgTemplates"></div>
+          <div class="field"><textarea class="in" id="msgText" dir="auto" maxlength="280" placeholder="Type a message for every phone…"></textarea></div>
+          <div class="field"><div class="lbl">Background</div><div class="dots" id="msgColour"></div></div>
+          <div class="actions"><button class="btn primary big" id="msgGo">Send to all phones</button></div>
+        </div>
+
+        <div class="card">
+          <h3>🤫 Secret — one seat</h3>
+          <div class="sub" style="margin:0">Click a seat on the audience map, then type the secret there. The operator sees when it has been read.</div>
+        </div>
+
+        <div class="card">
+          <h3>🖼️ Image</h3>
+          <div class="actions"><input type="file" id="imgFile" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none"><button class="btn" id="imgPick" style="flex:1">Upload image…</button></div>
+          <div class="thumbs" id="thumbs"></div>
+          <div class="grid2">
+            <div class="field"><div class="lbl">Fit</div><div class="seg" id="imgFit"><button data-v="contain" class="on">Whole image</button><button data-v="cover">Fill screen</button></div></div>
+            <div class="field"><div class="lbl">Caption (optional)</div><input class="in" id="imgCap" maxlength="80" dir="auto"></div>
+          </div>
+          <div class="actions"><button class="btn primary big" id="imgGo" disabled>Show on all phones</button></div>
+        </div>
+
+        <div class="card">
+          <h3>⏱️ Countdown</h3>
+          <div class="field"><div class="lbl">Seconds</div><div class="actions" style="margin:0"><div class="seg" id="cdSecs"><button data-v="3">3</button><button data-v="5">5</button><button data-v="10" class="on">10</button><button data-v="30">30</button><button data-v="60">60</button></div><input class="in" id="cdCustom" type="number" min="1" max="3600" placeholder="other" style="width:80px"></div></div>
+          <div class="grid2">
+            <div class="field"><div class="lbl">Label</div><input class="in" id="cdLabel" maxlength="60" value="The show begins in" dir="auto"></div>
+            <div class="field"><div class="lbl">At zero</div><input class="in" id="cdEnd" maxlength="40" value="SHOWTIME!" dir="auto"></div>
+          </div>
+          <div class="field"><div class="lbl">Colour</div><div class="dots" id="cdColour"></div></div>
+          <div class="actions"><button class="btn primary big" id="cdGo">Start countdown</button></div>
+        </div>
+      </div>
+
+      <!-- GAMES -->
+      <div class="tab" id="tab-games">
+        <div class="card">
+          <h3>🗳️ Vote</h3>
+          <div class="field"><div class="lbl">Question</div><input class="in" id="voteQ" maxlength="120" dir="auto" value="How should the story end?"></div>
+          <div class="field"><div class="lbl">Options (2–4)</div><div id="voteOpts"></div></div>
+          <label class="chk"><input type="checkbox" id="voteHide"> Hide results on the theatre screen until I close the vote</label>
+          <div class="actions"><button class="btn primary big" id="voteGo">Open vote</button></div>
+        </div>
+        <div class="card">
+          <h3>🔴 Buzzer — first tap wins <span class="k">Space = GO</span></h3>
+          <div class="sub" style="margin:0 0 10px">Arm first (phones show a grey “wait” button), then press GO. Tapping early knocks a seat out. Reaction times are measured on each phone's synced clock, so slower Wi-Fi doesn't cost anyone the win.</div>
+          <div class="actions"><button class="btn big" id="buzzArm">1 · Arm buzzer</button><button class="btn red big" id="buzzGo">2 · GO!</button></div>
+        </div>
+        <div class="card">
+          <h3>👆 Tap challenge</h3>
+          <div class="grid2">
+            <div class="field"><div class="lbl">Length</div><div class="seg" id="tapSecs"><button data-v="5">5 s</button><button data-v="10" class="on">10 s</button><button data-v="15">15 s</button><button data-v="30">30 s</button></div></div>
+            <div class="field"><div class="lbl">Compete as</div><div class="seg" id="tapTeams"><button data-v="solo" class="on">Everyone</button><button data-v="rows">Rows</button><button data-v="halves">Left vs right</button></div></div>
+          </div>
+          <div class="actions"><button class="btn primary big" id="tapGo">Start (3-2-1 on phones)</button></div>
+        </div>
+        <div class="card">
+          <h3>📱 Shake — fill the meter on the main screen</h3>
+          <div class="field"><div class="lbl">Goal text</div><input class="in" id="shakeLabel" maxlength="60" value="Shake to light the lantern!" dir="auto"></div>
+          <div class="field"><div class="lbl">Difficulty</div><div class="seg" id="shakeDiff"><button data-v="easy">Easy ~5 s</button><button data-v="normal" class="on">Normal ~10 s</button><button data-v="hard">Hard ~20 s</button></div></div>
+          <div class="actions"><button class="btn primary big" id="shakeGo">Start shake</button><button class="btn big" id="shakeStop">End</button></div>
+        </div>
+      </div>
+
+      <!-- PRIZES -->
+      <div class="tab" id="tab-prizes">
+        <div class="card">
+          <h3>🎁 Winner — random connected seat</h3>
+          <div class="field"><div class="lbl">Prize (shown on phones and screen)</div><input class="in" id="winPrize" maxlength="80" value="Backstage tour with the cast" dir="auto"></div>
+          <div class="field"><div class="lbl">Drum roll</div><div class="seg" id="winSpin"><button data-v="3000">3 s</button><button data-v="5000" class="on">5 s</button><button data-v="8000">8 s</button></div></div>
+          <label class="chk"><input type="checkbox" id="winSkip" checked> Skip seats that already won tonight</label>
+          <div class="actions"><button class="btn primary big" id="winGo">Draw a winner</button></div>
+        </div>
+        <div class="card">
+          <h3>🎁 Gift drop — different phones, different rewards</h3>
+          <div class="field"><div class="lbl">Title</div><input class="in" id="giftTitle" maxlength="60" value="Opening night gifts" dir="auto"></div>
+          <div class="field"><div class="lbl">Prizes and how many of each</div><div id="giftRows"></div><button class="btn" id="giftAdd" style="height:32px;font-size:12px">+ Add prize</button></div>
+          <div class="field"><div class="lbl">Everyone else gets</div><input class="in" id="giftCons" maxlength="60" value="Thank you for coming! 💛" dir="auto"></div>
+          <div class="actions"><button class="btn primary big" id="giftGo">Drop gifts</button></div>
+          <div class="sub" style="margin:8px 0 0">Prizes get a code like HK-7Q2M for the counter. Download the list from Setup.</div>
+        </div>
+      </div>
+
+      <!-- SETUP -->
+      <div class="tab" id="tab-setup">
+        <div class="card">
+          <h3>Join</h3>
+          <div class="qr"><img src="/qr.svg" alt="QR code to join"><div>Audience link<code id="joinUrl">…</code><div class="links"><a href="/screen" target="_blank" rel="noopener">Open theatre screen →</a><a href="/qr-sheet" target="_blank" rel="noopener">Print seat QR codes →</a></div></div></div>
+        </div>
+        <div class="card">
+          <h3>Show</h3>
+          <div class="actions"><button class="btn" id="csvBtn" style="flex:1">Download results (CSV)</button></div>
+          <div class="actions" style="margin-top:8px"><button class="btn" id="clearOffline" style="flex:1">Clear lost seats</button><button class="btn danger" id="resetShow" style="flex:1">Reset show</button></div>
+          <div class="sub" style="margin:10px 0 0">Reset sends every phone back to the seat screen and clears winners, gifts and secrets. Download results first.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/effects.js"></script>
+<script src="/clock.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const COLOURS = [
+    { name: 'Blue', hex: '#1e5bff', key: 'b' }, { name: 'Red', hex: '#ff1f3d', key: 'r' }, { name: 'Green', hex: '#12d66b', key: 'g' }, { name: 'Gold', hex: '#ffb800', key: 'y' },
+    { name: 'Purple', hex: '#8a2bff', key: 'p' }, { name: 'Pink', hex: '#ff4fa3', key: 'k' }, { name: 'White', hex: '#ffffff', key: 'w' }, { name: 'Black', hex: '#000000', key: 'x' },
+  ];
+  const textOn = (hex) => (HekayaFX.luminance(hex) > 0.6 ? '#111' : '#fff');
+
+  let socket = null, clock = null, PIN = '';
+  let layout = null, seatsData = [], scene = { type: 'idle' }, live = null, gifts = [];
+  let selSeat = null;
+
+  function toast(text, level) { const t = $('toast'); t.textContent = text; t.className = 'on' + (level === 'warn' ? ' warn' : ''); clearTimeout(t._h); t._h = setTimeout(() => (t.className = ''), 4000); }
+  const send = (ev, p) => { if (socket) socket.emit(ev, p || {}); };
+
+  // ---------- helpers: single-select segments and colour dots ----------
+  function seg(id, onChange) {
+    const el = $(id);
+    el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; for (const x of el.children) x.classList.toggle('on', x === b); onChange && onChange(b.dataset.v); });
+    return () => (el.querySelector('.on') || {}).dataset?.v;
+  }
+  function setSeg(id, v) { for (const x of $(id).children) x.classList.toggle('on', x.dataset.v === String(v)); }
+  function dots(id, initial, multi, onChange) {
+    const el = $(id);
+    let value = multi ? [...initial] : initial;
+    el.innerHTML = COLOURS.map((c) => `<button class="dot" data-v="${c.hex}" title="${c.name}" style="background:${c.hex}"></button>`).join('');
+    const paint = () => { for (const b of el.children) b.classList.toggle('on', multi ? value.includes(b.dataset.v) : b.dataset.v === value); };
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (multi) { value = value.includes(b.dataset.v) ? value.filter((x) => x !== b.dataset.v) : value.concat(b.dataset.v); if (!value.length) value = [b.dataset.v]; }
+      else value = b.dataset.v;
+      paint(); onChange && onChange(value);
+    });
+    paint();
+    return { get: () => value, set: (v) => { value = v; paint(); } };
+  }
+
+  // ---------- tabs ----------
+  $('tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    for (const x of $('tabs').children) x.classList.toggle('on', x === b);
+    for (const t of document.querySelectorAll('.tab')) t.classList.toggle('on', t.id === 'tab-' + b.dataset.tab);
+  });
+
+  // ---------- seat map ----------
+  const tiles = {};
+  function buildMap() {
+    $('map').innerHTML = layout.rows.map((r) => `<div class="row"><div class="row-l">${r.row}</div><div class="seats">${
+      Array.from({ length: r.count }, (_, i) => { const n = r.first + i; return `<button class="seat" data-n="${n}"><div class="fill"></div><span class="n">${layout.labels[n]}</span><span class="badge"></span><span class="ping"></span><span class="meterbar"></span></button>`; }).join('')
+    }</div><div class="row-l">${r.row}</div></div>`).join('');
+    for (const el of $('map').querySelectorAll('.seat')) {
+      const n = Number(el.dataset.n);
+      tiles[n] = { el, fill: el.querySelector('.fill'), num: el.querySelector('.n'), ping: el.querySelector('.ping'), badge: el.querySelector('.badge'), meter: el.querySelector('.meterbar'), shown: undefined };
+      el.addEventListener('click', () => openSeat(n));
+    }
+  }
+  function paintTile(n, colour) {
+    const t = tiles[n]; if (!t || t.shown === colour) return;
+    t.shown = colour;
+    t.fill.style.background = colour || '#2b2838';
+    const s = seatsData[n - 1];
+    t.num.style.color = s && s.online ? (colour ? textOn(colour) : '#f4efe6') : '';
+  }
+  function renderSeats() {
+    for (const s of seatsData) {
+      const t = tiles[s.seat]; if (!t) continue;
+      t.el.classList.toggle('online', s.online);
+      t.el.classList.toggle('lost', !s.online && s.known);
+      t.el.classList.toggle('sel', selSeat === s.seat);
+      t.ping.textContent = s.online && s.rtt != null ? s.rtt + ' ms' : '';
+      t.ping.className = 'ping' + (s.rtt > 400 ? ' bad' : s.rtt > 150 ? ' slow' : '');
+      t.badge.textContent = s.secret === 'seen' ? '✓' : s.secret === 'sent' ? '🤫' : '';
+      t.shown = undefined;
+    }
+    const pings = seatsData.filter((s) => s.online && s.rtt != null);
+    if (pings.length) {
+      const sorted = pings.map((p) => p.rtt).sort((a, b) => a - b);
+      const worst = pings.reduce((a, b) => (b.rtt > a.rtt ? b : a));
+      $('netStat').innerHTML = `Ping <b>${sorted[Math.floor(sorted.length / 2)]} ms</b> typical · worst <b>${worst.rtt} ms</b> (${esc(worst.label)})`;
+    } else $('netStat').textContent = 'Ping —';
+    if (selSeat) renderDrawer();
+    renderPreview();
+  }
+
+  // ---------- seat drawer (SECRET) ----------
+  const secretColour = dots('secretColour', '#5b2bd6');
+  // add a deep violet default not in the 8 swatches
+  $('secretColour').insertAdjacentHTML('afterbegin', '<button class="dot on" data-v="#5b2bd6" title="Violet" style="background:#5b2bd6"></button>');
+  secretColour.set('#5b2bd6');
+  function openSeat(n) { selSeat = n; $('drawer').classList.add('on'); renderSeats(); $('secretText').focus(); }
+  function renderDrawer() {
+    const s = seatsData[selSeat - 1]; if (!s) return;
+    $('dLabel').textContent = s.label; $('dLabel2').textContent = s.label;
+    $('dStatus').textContent = s.online ? 'Connected' + (s.rtt != null ? ' · ' + s.rtt + ' ms' : '') : s.known ? 'Signal lost' : 'Not connected';
+    $('dStatus').className = 'pill' + (s.online ? ' ok' : s.known ? ' warn' : '');
+    $('dSecret').style.display = s.secret ? '' : 'none';
+    $('dSecret').textContent = s.secret === 'seen' ? '✓ Secret read' : '🤫 Secret sent, not read yet';
+  }
+  $('dClose').onclick = () => { selSeat = null; $('drawer').classList.remove('on'); renderSeats(); };
+  $('secretSend').onclick = () => { send('secret', { seat: selSeat, text: $('secretText').value, color: secretColour.get() }); };
+  $('secretClear').onclick = () => send('secretClear', { seat: selSeat });
+
+  // ---------- light preview on the map ----------
+  let previewFrame = null;
+  function renderPreview() {
+    if (previewFrame) { cancelAnimationFrame(previewFrame); previewFrame = null; }
+    const lightScene = ['color', 'wave', 'sparkle', 'pattern', 'winner'].includes(scene.type);
+    for (const n in tiles) tiles[n].el.classList.toggle('preview', ['wave', 'sparkle', 'winner'].includes(scene.type));
+    if (!lightScene) {
+      for (const n in tiles) paintTile(Number(n), null);
+      return;
+    }
+    const step = () => {
+      previewFrame = null;
+      const t = clock ? clock.now() : Date.now();
+      let running = false;
+      for (const n in tiles) { const st = HekayaFX.seatColour(scene, Number(n), t); paintTile(Number(n), st.color); if (!st.done) running = true; }
+      if (scene.type === 'winner' && scene.state === 'spinning') running = true;
+      if (running) previewFrame = requestAnimationFrame(step);
+    };
+    step();
+  }
+
+  // ---------- header: now on phones ----------
+  const NAMES = { idle: 'Waiting screen', color: 'Colour', wave: 'Wave', sparkle: 'Sparkle', pattern: 'Pattern', message: 'Message', image: 'Image', countdown: 'Countdown', vote: 'Vote', buzzer: 'Buzzer', tap: 'Tap challenge', shake: 'Shake', winner: 'Winner draw', gift: 'Gift drop' };
+  function renderNow() {
+    $('nowText').textContent = scene.type === 'color' ? scene.color.toUpperCase() : NAMES[scene.type] || scene.type;
+    $('nowChip').style.background = scene.type === 'color' ? scene.color : scene.type === 'message' ? scene.color : '';
+    for (const b of $('swatches').children) b.classList.toggle('active', scene.type === 'color' && b.dataset.hex === scene.color);
+    $('liveKind').textContent = NAMES[scene.type] || '—';
+  }
+
+  // ---------- COLOR ----------
+  $('swatches').innerHTML = COLOURS.map((c) => `<button class="sw" data-hex="${c.hex}" style="background:${c.hex};color:${textOn(c.hex)};${c.hex === '#000000' ? 'border-color:#3a3646' : ''}"><span>${c.name}</span><kbd>${c.key.toUpperCase()}</kbd></button>`).join('');
+  $('swatches').addEventListener('click', (e) => { const b = e.target.closest('[data-hex]'); if (b) send('color', { color: b.dataset.hex }); });
+  $('sendCustom').onclick = () => send('color', { color: $('customColor').value });
+  $('idleBtn').onclick = () => send('idle');
+  $('blackBtn').onclick = () => send('color', { color: '#000000' });
+  for (const b of document.querySelectorAll('[data-stop]')) b.onclick = () => send('stopEffect', { color: '#000000' });
+
+  // ---------- WAVE ----------
+  const PRESETS = [
+    { name: 'Gentle sweep', w: { color: '#ffb800', base: '#000000', order: 'forward', mode: 'flash', stepMs: 120, holdMs: 700, loops: 1, gapMs: 400 } },
+    { name: 'Fast chase', w: { color: '#ffffff', base: '#000000', order: 'forward', mode: 'flash', stepMs: 35, holdMs: 200, loops: 3, gapMs: 250 } },
+    { name: 'Row cascade', w: { color: '#1e5bff', base: '#000000', order: 'rows', mode: 'flash', stepMs: 300, holdMs: 500, loops: 0, gapMs: 300 } },
+    { name: 'Stadium loop', w: { color: '#ff4fa3', base: '#000000', order: 'pingpong', mode: 'flash', stepMs: 60, holdMs: 400, loops: 0, gapMs: 150 } },
+    { name: 'Colour fill', w: { color: '#8a2bff', base: '#000000', order: 'centre', mode: 'fill', stepMs: 110, holdMs: 350, loops: 1, gapMs: 400 } },
+  ];
+  let wave = { ...PRESETS[0].w };
+  $('wavePresets').innerHTML = PRESETS.map((p, i) => `<button data-v="${i}"${i === 0 ? ' class="on"' : ''}>${p.name}</button>`).join('');
+  seg('wavePresets', (v) => { wave = { ...PRESETS[v].w }; syncWave(); });
+  const waveCol = dots('waveColour', wave.color, false, (v) => { wave.color = v; syncWave(true); });
+  const waveBase = dots('waveBase', wave.base, false, (v) => { wave.base = v; syncWave(true); });
+  seg('waveOrder', (v) => { wave.order = v; syncWave(true); });
+  seg('waveMode', (v) => { wave.mode = v; syncWave(true); });
+  seg('waveLoops', (v) => { wave.loops = Number(v); syncWave(true); });
+  $('waveStep').oninput = (e) => { wave.stepMs = Number(e.target.value); syncWave(true); };
+  $('waveHold').oninput = (e) => { wave.holdMs = Number(e.target.value); syncWave(true); };
+  function syncWave(custom) {
+    if (custom) for (const x of $('wavePresets').children) x.classList.remove('on');
+    waveCol.set(wave.color); waveBase.set(wave.base);
+    setSeg('waveOrder', wave.order); setSeg('waveMode', wave.mode); setSeg('waveLoops', wave.loops);
+    $('waveStep').value = wave.stepMs; $('waveHold').value = wave.holdMs;
+    $('holdField').style.opacity = wave.mode === 'flash' ? 1 : .35; $('waveHold').disabled = wave.mode !== 'flash';
+    const w = { ...HekayaFX.normaliseWave(wave), count: layout ? layout.count : 40, rowCount: layout ? layout.rows.length : 5 };
+    $('waveStepVal').textContent = w.stepMs + (w.order.startsWith('rows') ? ' ms / row' : ' ms / seat');
+    $('waveHoldVal').textContent = (w.holdMs / 1000).toFixed(2) + ' s';
+    $('waveSummary').textContent = 'pass ' + (HekayaFX.wavePass(w) / 1000).toFixed(1) + ' s' + (w.loops === 0 ? ' · until stopped' : '');
+  }
+  $('waveGo').onclick = () => send('wave', HekayaFX.normaliseWave(wave));
+
+  // ---------- SPARKLE ----------
+  const sparkCols = dots('sparkColours', ['#ffffff', '#ffb800'], true);
+  const sparkDur = seg('sparkDur');
+  const sparkLabels = () => { $('sparkDensVal').textContent = $('sparkDens').value + '%'; $('sparkSlotVal').textContent = (Number($('sparkSlot').value) / 1000).toFixed(2) + ' s'; };
+  $('sparkDens').oninput = sparkLabels; $('sparkSlot').oninput = sparkLabels; sparkLabels();
+  $('sparkGo').onclick = () => send('sparkle', { colors: sparkCols.get(), base: '#000000', density: Number($('sparkDens').value) / 100, slotMs: Number($('sparkSlot').value), durationMs: Number(sparkDur()) * 1000 });
+
+  // ---------- PATTERN ----------
+  const patKind = seg('patKind', (v) => { $('patColField').style.opacity = v === 'rainbow' ? .35 : 1; });
+  const patCols = dots('patColours', ['#ff1f3d', '#1e5bff'], true);
+  $('patGo').onclick = () => send('pattern', { kind: patKind(), colors: patCols.get() });
+
+  // ---------- MESSAGE ----------
+  const TEMPLATES = ['Welcome to Hekaya! ✨', 'أهلاً وسهلاً في حكاية', 'Phones up! 📱', 'Hold your phone towards the stage', 'Silence please 🤫', 'Thank you! 💛'];
+  $('msgTemplates').innerHTML = TEMPLATES.map((t) => `<button dir="auto">${esc(t)}</button>`).join('');
+  $('msgTemplates').onclick = (e) => { const b = e.target.closest('button'); if (b) $('msgText').value = b.textContent; };
+  const msgCol = dots('msgColour', '#000000');
+  $('msgColour').insertAdjacentHTML('afterbegin', '<button class="dot" data-v="#0b0a10" title="Night" style="background:#0b0a10;border-color:#55506a"></button><button class="dot" data-v="#5b2bd6" title="Violet" style="background:#5b2bd6"></button>');
+  msgCol.set('#0b0a10');
+  $('msgGo').onclick = () => send('message', { text: $('msgText').value, color: msgCol.get() });
+
+  // ---------- IMAGE ----------
+  let imgUrl = null;
+  const imgFit = seg('imgFit');
+  async function loadThumbs() {
+    try {
+      const list = await (await fetch('/api/uploads', { headers: { 'x-admin-pin': PIN } })).json();
+      $('thumbs').innerHTML = list.slice(0, 12).map((f) => `<button data-url="${f.url}" class="${f.url === imgUrl ? 'on' : ''}"><img src="${f.url}" alt=""></button>`).join('');
+    } catch (e) {}
+  }
+  $('thumbs').onclick = (e) => { const b = e.target.closest('[data-url]'); if (!b) return; imgUrl = b.dataset.url; $('imgGo').disabled = false; for (const x of $('thumbs').children) x.classList.toggle('on', x === b); };
+  $('imgPick').onclick = () => $('imgFile').click();
+  $('imgFile').onchange = async () => {
+    const f = $('imgFile').files[0]; if (!f) return;
+    $('imgPick').textContent = 'Uploading…';
+    try {
+      const r = await fetch('/api/upload', { method: 'POST', headers: { 'x-admin-pin': PIN, 'content-type': f.type || 'application/octet-stream' }, body: f });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Upload failed');
+      imgUrl = j.url; $('imgGo').disabled = false; await loadThumbs();
+    } catch (e) { toast(e.message); }
+    $('imgPick').textContent = 'Upload image…'; $('imgFile').value = '';
+  };
+  $('imgGo').onclick = () => send('image', { url: imgUrl, fit: imgFit(), caption: $('imgCap').value });
+
+  // ---------- COUNTDOWN ----------
+  const cdSecs = seg('cdSecs', () => { $('cdCustom').value = ''; });
+  const cdCol = dots('cdColour', '#ffb800');
+  $('cdGo').onclick = () => send('countdown', { seconds: Number($('cdCustom').value) || Number(cdSecs()), label: $('cdLabel').value, endText: $('cdEnd').value, color: cdCol.get() });
+
+  // ---------- VOTE ----------
+  const voteDefaults = [['Happy ending', '#12d66b'], ['A twist!', '#8a2bff'], ['Tragic', '#ff1f3d'], ['', '#ffb800']];
+  $('voteOpts').innerHTML = voteDefaults.map(([l], i) => `<div class="opt-row"><input class="in" data-o="${i}" maxlength="30" dir="auto" placeholder="Option ${i + 1}${i > 1 ? ' (optional)' : ''}" value="${esc(l)}"><div class="dots" id="voteCol${i}"></div></div>`).join('');
+  const voteCols = voteDefaults.map(([, c], i) => dots('voteCol' + i, c));
+  $('voteGo').onclick = () => send('voteStart', {
+    question: $('voteQ').value,
+    options: voteDefaults.map((_, i) => ({ label: document.querySelector(`[data-o="${i}"]`).value, color: voteCols[i].get() })),
+    hideLive: $('voteHide').checked,
+  });
+
+  // ---------- BUZZER / TAP / SHAKE ----------
+  $('buzzArm').onclick = () => send('buzzerArm');
+  $('buzzGo').onclick = () => send('buzzerGo');
+  const tapSecs = seg('tapSecs'), tapTeams = seg('tapTeams');
+  $('tapGo').onclick = () => send('tapStart', { seconds: Number(tapSecs()), teams: tapTeams() });
+  const shakeDiff = seg('shakeDiff');
+  $('shakeGo').onclick = () => send('shakeStart', { label: $('shakeLabel').value, difficulty: shakeDiff() });
+  $('shakeStop').onclick = () => send('shakeStop');
+
+  // ---------- WINNER / GIFT ----------
+  const winSpin = seg('winSpin');
+  $('winGo').onclick = () => send('winnerDraw', { prize: $('winPrize').value, spinMs: Number(winSpin()), excludePrevious: $('winSkip').checked });
+  const giftRow = (name, qty) => `<div class="prize-row"><input class="in" data-gn maxlength="40" dir="auto" placeholder="Prize name" value="${esc(name)}"><input class="in" data-gq type="number" min="0" max="40" value="${qty}"></div>`;
+  $('giftRows').innerHTML = giftRow('Free popcorn', 3) + giftRow('Signed poster', 2) + giftRow('Meet the cast', 1);
+  $('giftAdd').onclick = () => $('giftRows').insertAdjacentHTML('beforeend', giftRow('', 1));
+  $('giftGo').onclick = () => {
+    const names = [...document.querySelectorAll('[data-gn]')], qtys = [...document.querySelectorAll('[data-gq]')];
+    send('giftDrop', { title: $('giftTitle').value, consolation: $('giftCons').value, prizes: names.map((n, i) => ({ name: n.value, qty: Number(qtys[i].value) })) });
+  };
+
+  // ---------- SETUP ----------
+  $('clearOffline').onclick = () => send('clearOffline');
+  $('resetShow').onclick = () => { if (confirm('Reset the show? Every phone goes back to the seat screen; winners, gifts and secrets are cleared. Download results first if you need them.')) send('resetShow'); };
+  $('csvBtn').onclick = () => { window.location = '/api/results.csv?pin=' + encodeURIComponent(PIN); };
+  fetch('/api/join-url').then((r) => r.json()).then((d) => { $('joinUrl').textContent = d.url; }).catch(() => {});
+
+  // ---------- LIVE panel ----------
+  let liveFrame = null;
+  function renderLive() {
+    if (liveFrame) { cancelAnimationFrame(liveFrame); liveFrame = null; }
+    const s = scene, L = live && live.id === s.id ? live : null;
+    const box = $('live');
+    for (const n in tiles) { tiles[n].meter.style.transform = 'scaleX(0)'; }
+    switch (s.type) {
+      case 'vote': {
+        const counts = (L && L.counts) || s.tally || s.options.map(() => 0);
+        const total = counts.reduce((a, b) => a + b, 0) || 1;
+        box.innerHTML = `<div class="live-h" dir="auto">${esc(s.question)}</div><div class="sub">${s.state === 'open' ? 'Voting open' : 'Voting closed'} · ${L ? L.voters : 0} of ${L ? L.online : '—'} connected have voted</div>
+          ${s.options.map((o, i) => `<div class="barrow"><div class="lab"><span dir="auto">${esc(o.label)}</span><span>${counts[i]} · ${Math.round(counts[i] / total * 100)}%</span></div><div class="bar"><i style="width:${counts[i] / total * 100}%;background:${o.color}"></i></div></div>`).join('')}
+          <div class="actions">${s.state === 'open' ? '<button class="btn red" id="lvClose">Close vote</button>' : ''}<button class="btn" id="lvShow"${s.showResults ? ' disabled' : ''}>Show results on phones</button><button class="btn" id="lvPat">Light phones by vote</button></div>`;
+        if ($('lvClose')) $('lvClose').onclick = () => send('voteClose');
+        $('lvShow').onclick = () => send('voteResults');
+        $('lvPat').onclick = () => send('votePattern');
+        break;
+      }
+      case 'buzzer': {
+        if (s.state === 'done' && s.winner) {
+          box.innerHTML = `<div class="sub">First to buzz</div><div class="big-num">${esc(s.winner.label)}</div><div class="sub">${(s.winner.ms / 1000).toFixed(3)} s reaction</div>
+            <table><tr><th>#</th><th>Seat</th><th>Time</th></tr>${s.top.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.label)}</td><td>${(r.ms / 1000).toFixed(3)} s</td></tr>`).join('')}</table>
+            <div class="actions" style="margin-top:10px"><button class="btn" id="lvRearm" style="flex:1">Arm again for another round</button></div>`;
+          $('lvRearm').onclick = () => send('buzzerArm');
+        } else {
+          box.innerHTML = `<div class="live-h">${s.state === 'armed' ? 'Armed — phones show “wait”' : 'GO! Waiting for the first tap…'}</div>
+            <div class="actions" style="margin-top:12px"><button class="btn red big" id="lvGo"${s.state !== 'armed' ? ' disabled' : ''}>GO! <span style="opacity:.7">(Space)</span></button></div>`;
+          $('lvGo').onclick = () => send('buzzerGo');
+        }
+        break;
+      }
+      case 'tap': {
+        const top = s.state === 'done' ? (L ? L.top : s.top || []) : (L ? L.top : []);
+        const teams = (L && L.teams) || s.teamResults || [];
+        box.innerHTML = `<div class="live-h" id="lvTapH"></div>
+          ${teams.length ? `<div class="sub" style="margin-top:8px">Teams (average taps per person)</div>${teams.map((t, i) => `<div class="barrow"><div class="lab"><span>${i === 0 ? '🏆 ' : ''}${esc(t.name)}</span><span>${t.avg} avg · ${t.total}</span></div><div class="bar"><i style="width:${teams[0].avg ? t.avg / teams[0].avg * 100 : 0}%;background:var(--gold)"></i></div></div>`).join('')}` : ''}
+          <table><tr><th>#</th><th>Seat</th><th>Taps</th></tr>${top.slice(0, 8).map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.label)}</td><td>${r.count}</td></tr>`).join('')}</table>`;
+        const max = top.length ? top[0].count : 0;
+        if (L && L.all) for (const n in L.all) if (tiles[n]) tiles[n].meter.style.transform = `scaleX(${max ? L.all[n] / max : 0})`;
+        const tick = () => {
+          liveFrame = null;
+          const t = clock.now(), h = $('lvTapH'); if (!h) return;
+          if (s.state === 'done') h.textContent = s.winner ? `🏆 ${s.winner.label} wins with ${s.winner.count} taps` : 'No taps recorded';
+          else if (t < s.startAt) h.textContent = `Starting in ${Math.ceil((s.startAt - t) / 1000)}…`;
+          else if (t < s.endAt) h.textContent = `Tapping! ${((s.endAt - t) / 1000).toFixed(1)} s left`;
+          else h.textContent = 'Time! Counting…';
+          if (s.state !== 'done') liveFrame = requestAnimationFrame(tick);
+        };
+        tick();
+        break;
+      }
+      case 'shake': {
+        const p = L ? L.progress : 0;
+        box.innerHTML = `<div class="live-h" dir="auto">${esc(s.label)}</div><div class="meter"><i style="width:${Math.round(p * 100)}%"></i></div>
+          <div class="sub">${s.state === 'done' ? '🎉 Goal reached!' : Math.round(p * 100) + '% — bars on each seat show who is shaking'}</div>`;
+        if (L && L.perSeat) for (const n in L.perSeat) if (tiles[n]) tiles[n].meter.style.transform = `scaleX(${L.perSeat[n]})`;
+        break;
+      }
+      case 'winner': {
+        box.innerHTML = s.state === 'spinning'
+          ? `<div class="live-h">Drawing from ${s.pool.length} connected seats…</div><div class="sub" dir="auto">${esc(s.prize)}</div>`
+          : `<div class="sub">Winner</div><div class="big-num">${esc(s.winner.label)}</div><div class="sub" dir="auto">${esc(s.prize)}</div>
+             <div class="actions"><button class="btn" id="lvAgain" style="flex:1">Draw another</button></div>`;
+        if ($('lvAgain')) $('lvAgain').onclick = () => $('winGo').click();
+        break;
+      }
+      case 'gift': {
+        const opened = L ? L.opened : 0;
+        box.innerHTML = `<div class="live-h" dir="auto">${esc(s.title)}</div><div class="sub">${opened} of ${gifts.length} gifts opened · ${s.prizeCount} prizes</div>
+          <table><tr><th>Seat</th><th>Gift</th><th>Code</th><th>Opened</th></tr>${gifts.filter((g) => g.isPrize).map((g) => `<tr><td>${esc(g.label)}</td><td dir="auto">${esc(g.prize)}</td><td><code>${esc(g.code)}</code></td><td>${g.opened ? '✓' : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="live-empty">No prizes in this drop</td></tr>'}</table>`;
+        break;
+      }
+      case 'countdown': {
+        box.innerHTML = `<div class="sub" dir="auto">${esc(s.label)}</div><div class="big-num" id="lvCd"></div>`;
+        const tick = () => { liveFrame = null; const el = $('lvCd'); if (!el) return; const left = Math.ceil((s.endAt - clock.now()) / 1000); el.textContent = left > 0 ? left : s.endText; if (left > 0) liveFrame = requestAnimationFrame(tick); };
+        tick();
+        break;
+      }
+      case 'message': box.innerHTML = `<div class="sub">On every phone</div><div class="live-h" dir="auto" style="font-size:22px">${esc(s.text)}</div>`; break;
+      case 'image': box.innerHTML = `<div class="sub">On every phone</div><img src="${esc(s.url)}" alt="" style="max-width:100%;max-height:220px;border-radius:10px">`; break;
+      default: box.innerHTML = `<div class="live-empty">Results, scores and controls for games and prizes appear here.</div>`;
+    }
+  }
+
+  // ---------- keyboard ----------
+  document.addEventListener('keydown', (e) => {
+    if (!socket || e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = e.target.tagName;
+    if ((tag === 'INPUT' && e.target.type !== 'range' && e.target.type !== 'checkbox') || tag === 'TEXTAREA') return;
+    const k = e.key.toLowerCase();
+    if (e.key === 'Escape') { send('idle'); return; }
+    if (e.key === ' ' && scene.type === 'buzzer' && scene.state === 'armed') { e.preventDefault(); send('buzzerGo'); return; }
+    if (k === 'v') { $('waveGo').click(); return; }
+    if (k === 's') { send('stopEffect', { color: '#000000' }); return; }
+    const c = COLOURS.find((c) => c.key === k);
+    if (c) send('color', { color: c.hex });
+  });
+
+  // ---------- connect ----------
+  function setLink(ok) { $('link').classList.toggle('ok', ok); $('link').querySelector('span').textContent = ok ? 'Live' : 'Offline'; }
+  function connect(pin) {
+    const s = io('/admin', { auth: { pin }, transports: ['websocket', 'polling'] });
+    s.on('connect', () => {
+      socket = s; PIN = pin;
+      if (!clock) clock = HekayaClock(s, { everyMs: 20000 });
+      clock.sync(6);
+      $('gate').style.display = 'none';
+      try { sessionStorage.setItem('hc_pin', pin); } catch (e) {}
+      setLink(true);
+      loadThumbs();
+    });
+    s.on('connect_error', (err) => {
+      setLink(false);
+      if (err && err.data && err.data.code === 'bad_pin') {
+        s.close(); socket = null;
+        try { sessionStorage.removeItem('hc_pin'); } catch (e) {}
+        $('gate').style.display = 'flex'; $('gateErr').textContent = 'Wrong PIN.';
+      }
+    });
+    s.on('disconnect', () => setLink(false));
+    s.on('layout', (l) => { layout = l; buildMap(); syncWave(); renderSeats(); });
+    s.on('seats', (d) => { seatsData = d.seats; $('online').textContent = d.online; $('max').textContent = d.max; if (layout) renderSeats(); });
+    s.on('scene', (sc) => { const changed = sc.id !== scene.id; scene = sc; if (changed) live = null; renderNow(); renderPreview(); renderLive(); });
+    s.on('live', (l) => { live = l; if (l.id === scene.id) renderLive(); });
+    s.on('gifts', (g) => { gifts = g; if (scene.type === 'gift') renderLive(); });
+    s.on('notice', (n) => toast(n.text, n.level));
+  }
+  $('gateForm').addEventListener('submit', (e) => { e.preventDefault(); $('gateErr').textContent = ''; connect($('pin').value.trim()); });
+  let saved = null;
+  try { saved = sessionStorage.getItem('hc_pin'); } catch (e) {}
+  if (saved) connect(saved); else $('pin').focus();
+})();
+</script>
+</body>
+</html>

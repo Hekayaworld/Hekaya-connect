@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hekaya Connect · Theatre screen</title>
+<style>
+  :root {
+    --u: min(1vw, 1.7778vh); /* 1/100 of a 16:9 frame */
+    --ink: #07060b; --ink-2: #13111b; --line: #2a2735; --text: #f6f1e7; --muted: #a39d92; --gold: #e0ac44; --gold-2: #ffcf6e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans Arabic", "Geeza Pro", sans-serif; color: var(--text); display: flex; align-items: center; justify-content: center; }
+  #frame {
+    width: calc(var(--u) * 100); height: calc(var(--u) * 56.25); position: relative; overflow: hidden;
+    background: radial-gradient(80% 70% at 50% 0%, rgba(224,172,68,.13), transparent 60%), var(--ink);
+  }
+  .top { position: absolute; top: calc(var(--u) * 2.2); left: calc(var(--u) * 3); right: calc(var(--u) * 3); display: flex; align-items: center; z-index: 3; }
+  .brand { font-size: calc(var(--u) * 1.3); letter-spacing: .45em; color: var(--gold); text-transform: uppercase; font-weight: 700; }
+  .brand b { color: var(--text); letter-spacing: .3em; }
+  .top .sp { flex: 1; }
+  .conn { font-size: calc(var(--u) * 1.4); color: var(--muted); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: calc(var(--u) * .7); }
+  .conn i { width: calc(var(--u) * .9); height: calc(var(--u) * .9); border-radius: 50%; background: #4fd18b; box-shadow: 0 0 calc(var(--u)) #4fd18b; }
+  .conn b { color: var(--text); }
+  #view { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: calc(var(--u) * 7) calc(var(--u) * 5) calc(var(--u) * 4); }
+
+  .h1 { font-size: calc(var(--u) * 5.4); font-weight: 900; line-height: 1.08; letter-spacing: -.01em; }
+  .h2 { font-size: calc(var(--u) * 2.6); color: var(--muted); margin-top: calc(var(--u) * 1.2); }
+  .cap { font-size: calc(var(--u) * 1.5); letter-spacing: .4em; text-transform: uppercase; color: var(--muted); margin-bottom: calc(var(--u) * 1.2); }
+  .huge { font-size: calc(var(--u) * 20); font-weight: 900; line-height: .9; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+  .gold { color: var(--gold-2); }
+
+  /* Idle / join */
+  .join { display: grid; grid-template-columns: auto 1fr; gap: calc(var(--u) * 5); align-items: center; text-align: left; width: 100%; }
+  .qr { width: calc(var(--u) * 26); height: calc(var(--u) * 26); background: #fff; border-radius: calc(var(--u) * 1.6); padding: calc(var(--u) * 1.2); }
+  .join .title { font-size: calc(var(--u) * 6.5); font-weight: 900; line-height: 1; }
+  .join .title em { font-style: normal; color: var(--gold-2); }
+  .join p { font-size: calc(var(--u) * 2.2); color: var(--muted); margin: calc(var(--u) * 1.4) 0 calc(var(--u) * 2.4); }
+  .join .url { font-size: calc(var(--u) * 1.6); color: var(--gold-2); font-family: ui-monospace, Menlo, monospace; }
+  .bigcount { font-size: calc(var(--u) * 3.6); font-weight: 800; margin-top: calc(var(--u) * 2); font-variant-numeric: tabular-nums; }
+  .bigcount span { color: var(--muted); font-weight: 600; }
+
+  /* Audience map */
+  .amap { display: flex; flex-direction: column; gap: calc(var(--u) * 1.1); }
+  .arow { display: flex; gap: calc(var(--u) * 1.1); align-items: center; justify-content: center; }
+  .arow .rl { width: calc(var(--u) * 2.4); font-size: calc(var(--u) * 1.4); color: var(--muted); font-weight: 700; }
+  .aseat { border-radius: calc(var(--u) * .9); background: #1b1925; border: calc(var(--u) * .18) solid #2b2836; display: flex; align-items: center; justify-content: center; font-weight: 800; color: rgba(255,255,255,.18); position: relative; transition: background-color .12s; }
+  .aseat.on { border-color: transparent; }
+  .aseat.glow { box-shadow: 0 0 calc(var(--u) * 2) currentColor; }
+  .map-small .aseat { width: calc(var(--u) * 4); height: calc(var(--u) * 3.2); font-size: calc(var(--u) * 1); }
+  .map-big .aseat { width: calc(var(--u) * 8.6); height: calc(var(--u) * 6.6); font-size: calc(var(--u) * 1.6); }
+  .stagebar { height: calc(var(--u) * 1.6); border-radius: calc(var(--u) * .6) calc(var(--u) * .6) 50% 50%; background: linear-gradient(180deg, #3a3040, #1a1620); font-size: calc(var(--u) * .9); letter-spacing: .5em; color: var(--muted); display: flex; align-items: center; justify-content: center; margin-bottom: calc(var(--u) * 1.4); }
+
+  /* Bars */
+  .bars { width: 100%; max-width: calc(var(--u) * 80); margin-top: calc(var(--u) * 3); text-align: left; }
+  .brow { margin-bottom: calc(var(--u) * 2); }
+  .brow .lab { display: flex; justify-content: space-between; font-size: calc(var(--u) * 2.6); font-weight: 800; margin-bottom: calc(var(--u) * .7); }
+  .brow .lab span:last-child { font-variant-numeric: tabular-nums; }
+  .track { height: calc(var(--u) * 3.4); border-radius: calc(var(--u) * 1.7); background: rgba(255,255,255,.08); overflow: hidden; }
+  .track i { display: block; height: 100%; border-radius: calc(var(--u) * 1.7); transition: width .7s cubic-bezier(.2,.8,.2,1); }
+  .lead .lab { color: var(--gold-2); }
+  .bars.compact { margin-top: calc(var(--u) * 1.6); }
+  .bars.compact .brow { margin-bottom: calc(var(--u) * 1.1); }
+  .bars.compact .lab { font-size: calc(var(--u) * 2); margin-bottom: calc(var(--u) * .4); }
+  .bars.compact .track { height: calc(var(--u) * 2.1); }
+
+  .meter { width: calc(var(--u) * 78); height: calc(var(--u) * 6); border-radius: calc(var(--u) * 3); background: rgba(255,255,255,.08); overflow: hidden; margin: calc(var(--u) * 3) auto calc(var(--u) * 1); border: calc(var(--u) * .25) solid rgba(255,255,255,.15); }
+  .meter i { display: block; height: 100%; background: linear-gradient(90deg, #ffb800, #ff4fa3, #8a2bff); transition: width .3s; box-shadow: 0 0 calc(var(--u) * 3) #ff4fa3; }
+  .pct { font-size: calc(var(--u) * 4); font-weight: 900; font-variant-numeric: tabular-nums; }
+
+  .list { margin-top: calc(var(--u) * 2.4); font-size: calc(var(--u) * 2.2); color: var(--muted); line-height: 1.6; font-variant-numeric: tabular-nums; }
+  .list b { color: var(--text); }
+  .img { position: absolute; inset: 0; background: #000; }
+  .img img { width: 100%; height: 100%; }
+  .img .capn { position: absolute; left: 0; right: 0; bottom: calc(var(--u) * 3); font-size: calc(var(--u) * 3); font-weight: 800; text-shadow: 0 calc(var(--u) * .3) calc(var(--u) * 2) #000; }
+  .pop { animation: pop .6s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .beat { animation: beat 1s ease-out; }
+  @keyframes beat { 0% { transform: scale(1.15); } 100% { transform: scale(1); } }
+  .flashbg { animation: flashbg .8s ease-out; }
+  @keyframes flashbg { 0% { background: #fff; } 100% { background: transparent; } }
+  .reel { font-size: calc(var(--u) * 16); font-weight: 900; font-variant-numeric: tabular-nums; color: var(--gold-2); min-width: calc(var(--u) * 40); }
+  .hint { position: absolute; bottom: calc(var(--u) * 1.4); left: 0; right: 0; text-align: center; font-size: calc(var(--u) * 1.1); color: #3d3946; }
+</style>
+</head>
+<body>
+<div id="frame">
+  <div class="top"><div class="brand">Hekaya <b>Connect</b></div><div class="sp"></div><div class="conn"><i></i><b id="cnt">0</b>&nbsp;/ <span id="max">40</span> connected</div></div>
+  <div id="view"></div>
+  <div class="hint" id="hint">Click anywhere for full screen</div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/effects.js"></script>
+<script src="/clock.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const socket = io('/screen', { transports: ['websocket', 'polling'] });
+  const clock = HekayaClock(socket, { everyMs: 20000 });
+
+  let layout = null, seats = [], scene = { type: 'idle' }, live = null, joinUrl = '';
+  const view = $('view');
+  document.addEventListener('click', () => { const el = document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el); $('hint').style.display = 'none'; });
+  setTimeout(() => { $('hint').style.display = 'none'; }, 8000);
+
+  fetch('/api/join-url').then((r) => r.json()).then((d) => { joinUrl = d.url; if (scene.type === 'idle') render(); });
+  fetch('/api/layout').then((r) => r.json()).then((l) => { layout = l; render(); });
+
+  // ---------- audience map ----------
+  function mapHtml(size) {
+    if (!layout) return '';
+    return `<div class="amap map-${size}"><div class="stagebar">STAGE</div>${layout.rows.map((r) => `<div class="arow"><span class="rl">${r.row}</span>${
+      Array.from({ length: r.count }, (_, i) => `<div class="aseat" data-n="${r.first + i}">${layout.labels[r.first + i]}</div>`).join('')}<span class="rl">${r.row}</span></div>`).join('')}</div>`;
+  }
+  function paintMap(colourFor) {
+    for (const el of view.querySelectorAll('.aseat')) {
+      const n = Number(el.dataset.n), s = seats[n - 1], online = s && s.online;
+      const c = colourFor(n, online);
+      if (c) { el.style.background = c; el.classList.add('on'); el.style.color = HekayaFX.luminance(c) > .6 ? 'rgba(0,0,0,.45)' : 'rgba(255,255,255,.55)'; }
+      else { el.style.background = ''; el.classList.remove('on'); el.style.color = online ? 'rgba(255,255,255,.6)' : ''; el.style.borderColor = online ? '#4fd18b' : ''; }
+    }
+  }
+
+  // ---------- animation loop ----------
+  let frame = null, drawKey = '';
+  function loop() {
+    frame = null;
+    const t = clock.now();
+    let keep = false;
+    const s = scene;
+    switch (s.type) {
+      case 'color': case 'wave': case 'sparkle': case 'pattern':
+        paintMap((n, online) => { const st = HekayaFX.seatColour(s, n, t); if (!st.done) keep = true; return online ? st.color : null; });
+        break;
+      case 'countdown': {
+        const left = Math.ceil((s.endAt - t) / 1000);
+        if ('cd' + left !== drawKey) {
+          drawKey = 'cd' + left;
+          view.innerHTML = left > 0
+            ? `<div>${s.label ? `<div class="h2" style="margin:0 0 calc(var(--u)*1)" dir="auto">${esc(s.label)}</div>` : ''}<div class="huge beat" style="color:${s.color};font-size:calc(var(--u)*${left <= 3 ? 30 : 24})">${left}</div></div>`
+            : `<div class="h1 pop" style="font-size:calc(var(--u)*12);color:${s.color}" dir="auto">${esc(s.endText)}</div>`;
+          if (left === 0) $('frame').classList.add('flashbg'), setTimeout(() => $('frame').classList.remove('flashbg'), 900);
+        }
+        keep = left > -2;
+        break;
+      }
+      case 'buzzer':
+        if (s.state === 'live' && t >= s.goAt && drawKey !== 'go') { drawKey = 'go'; view.innerHTML = `<div class="h1 pop" style="font-size:calc(var(--u)*16);color:#ff3b4e">BUZZ!</div>`; }
+        keep = s.state === 'live' && t < s.goAt;
+        break;
+      case 'tap': {
+        const phase = t < s.startAt ? 'c' + Math.ceil((s.startAt - t) / 1000) : t < s.endAt ? 'live' : 'over';
+        if (phase !== drawKey) { drawKey = phase; drawTap(t); }
+        if (phase === 'live') { const el = $('tapLeft'); if (el) el.textContent = Math.max(0, (s.endAt - t) / 1000).toFixed(1) + 's'; }
+        keep = s.state !== 'done';
+        break;
+      }
+      case 'winner': {
+        if (s.state === 'spinning') {
+          const el = $('reel');
+          if (el && s.pool.length) {
+            const left = s.revealAt - t;
+            const speed = left > 1500 ? 70 : left > 600 ? 160 : 320; // slows down before the reveal
+            const idx = Math.floor(t / speed) % s.pool.length;
+            el.textContent = s.pool[(idx * 7) % s.pool.length];
+          }
+          keep = true;
+        }
+        break;
+      }
+    }
+    if (keep) frame = requestAnimationFrame(loop);
+  }
+  const startLoop = () => { if (!frame) frame = requestAnimationFrame(loop); };
+
+  // ---------- views ----------
+  function render() {
+    drawKey = '';
+    const s = scene;
+    switch (s.type) {
+      case 'color': case 'wave': case 'sparkle': case 'pattern':
+        view.innerHTML = mapHtml('big');
+        break;
+      case 'message':
+        view.innerHTML = `<div class="h1" dir="auto" style="font-size:calc(var(--u)*${s.text.length < 30 ? 7 : s.text.length < 90 ? 5 : 3.6})">${esc(s.text)}</div>`;
+        break;
+      case 'image':
+        view.innerHTML = `<div class="img"><img src="${esc(s.url)}" alt="" style="object-fit:${s.fit}">${s.caption ? `<div class="capn" dir="auto">${esc(s.caption)}</div>` : ''}</div>`;
+        break;
+      case 'countdown': view.innerHTML = ''; break;
+      case 'vote': drawVote(); break;
+      case 'buzzer': drawBuzzer(); break;
+      case 'tap': view.innerHTML = ''; break;
+      case 'shake': drawShake(); break;
+      case 'winner': drawWinner(); break;
+      case 'gift': drawGift(); break;
+      default: drawIdle();
+    }
+    startLoop();
+  }
+
+  function drawIdle() {
+    const online = seats.filter((x) => x.online).length;
+    view.innerHTML = `<div class="join"><img class="qr" src="/qr.svg" alt=""><div>
+      <div class="title">Join <em>Hekaya Connect</em></div>
+      <p>Scan with your phone camera · pick your seat · no app needed</p>
+      ${mapHtml('small')}
+      <div class="bigcount">${online} <span>/ ${seats.length || (layout && layout.count) || 40} phones connected</span></div>
+    </div></div>`;
+    paintMap(() => null);
+  }
+
+  function drawVote() {
+    const s = scene, L = live && live.kind === 'vote' && live.id === s.id ? live : null;
+    const counts = (L && L.counts) || s.tally || s.options.map(() => 0);
+    const total = counts.reduce((a, b) => a + b, 0);
+    const hidden = s.hideLive && s.state === 'open';
+    const max = Math.max(...counts);
+    view.innerHTML = `<div style="width:100%;display:flex;flex-direction:column;align-items:center">
+      <div class="cap">${s.state === 'open' ? 'Vote now on your phone' : 'The audience has decided'}</div>
+      <div class="h1" dir="auto">${esc(s.question)}</div>
+      <div class="bars">${s.options.map((o, i) => `<div class="brow${!hidden && s.state !== 'open' && counts[i] === max && max > 0 ? ' lead' : ''}"><div class="lab"><span dir="auto">${esc(o.label)}</span><span>${hidden ? '' : (total ? Math.round(counts[i] / total * 100) : 0) + '%'}</span></div>
+        <div class="track"><i style="width:${hidden ? 0 : total ? counts[i] / total * 100 : 0}%;background:${o.color}"></i></div></div>`).join('')}</div>
+      <div class="h2">${L ? L.voters : total} ${((L ? L.voters : total) === 1) ? 'vote' : 'votes'}${hidden ? ' · results when voting closes' : ''}</div></div>`;
+  }
+
+  function drawBuzzer() {
+    const s = scene;
+    if (s.state === 'done' && s.winner) {
+      view.innerHTML = `<div><div class="cap">First to buzz</div><div class="huge gold pop">${esc(s.winner.label)}</div><div class="h2">${(s.winner.ms / 1000).toFixed(3)} seconds</div>
+        <div class="list">${s.top.slice(1, 5).map((r, i) => `${i + 2}. <b>${esc(r.label)}</b> ${(r.ms / 1000).toFixed(3)} s`).join(' &nbsp;·&nbsp; ')}</div></div>`;
+      return;
+    }
+    view.innerHTML = `<div><div class="cap">Buzzer round</div><div class="h1">Get ready…</div><div class="h2">First to tap when phones turn red wins</div></div>`;
+  }
+
+  function drawTap(t) {
+    const s = scene, L = live && live.kind === 'tap' && live.id === s.id ? live : null;
+    if (s.state === 'done') {
+      const tr = s.teamResults || [];
+      view.innerHTML = `<div><div class="cap">Fastest fingers</div><div class="huge gold pop">${esc(s.winner ? s.winner.label : '—')}</div><div class="h2">${s.winner ? s.winner.count + ' taps' : ''}${tr.length ? ` · winning team <b style="color:#fff">${esc(tr[0].name)}</b>` : ''}</div></div>`;
+      return;
+    }
+    if (t < s.startAt) { view.innerHTML = `<div><div class="cap">Tap challenge</div><div class="huge beat gold">${Math.ceil((s.startAt - t) / 1000)}</div></div>`; return; }
+    if (t >= s.endAt) { view.innerHTML = `<div class="h1">Time!</div>`; return; }
+    view.innerHTML = `<div style="width:100%;display:flex;flex-direction:column;align-items:center"><div class="cap" style="margin:0">Tap! Tap! Tap!</div><div class="h1" id="tapLeft" style="font-variant-numeric:tabular-nums;font-size:calc(var(--u)*4.2)"></div><div class="bars compact" id="tapBars"></div></div>`;
+    drawTapBars();
+  }
+  function drawTapBars() {
+    const el = $('tapBars'); if (!el) return;
+    const s = scene, L = live && live.kind === 'tap' && live.id === s.id ? live : null;
+    if (!L) { el.innerHTML = ''; return; }
+    if (L.teams && L.teams.length) {
+      const max = Math.max(1, ...L.teams.map((x) => x.avg));
+      el.innerHTML = L.teams.map((x, i) => `<div class="brow${i === 0 ? ' lead' : ''}"><div class="lab"><span>${esc(x.name)}</span><span>${x.avg}</span></div><div class="track"><i style="width:${x.avg / max * 100}%;background:${['#ffb800', '#1e5bff', '#ff4fa3', '#12d66b', '#8a2bff', '#ff1f3d'][i % 6]}"></i></div></div>`).join('');
+    } else {
+      const top = L.top.slice(0, 6), max = Math.max(1, ...top.map((x) => x.count));
+      el.innerHTML = top.map((x, i) => `<div class="brow${i === 0 ? ' lead' : ''}"><div class="lab"><span>${esc(x.label)}</span><span>${x.count}</span></div><div class="track"><i style="width:${x.count / max * 100}%;background:var(--gold)"></i></div></div>`).join('');
+    }
+  }
+
+  function drawShake() {
+    const s = scene, L = live && live.kind === 'shake' && live.id === s.id ? live : null;
+    const p = L ? L.progress : 0;
+    if (s.state === 'done') {
+      view.innerHTML = `<div><div class="huge pop" style="font-size:calc(var(--u)*14)">🎉</div><div class="h1 gold" dir="auto">${esc(s.label)}</div><div class="h2">You did it — together!</div></div>`;
+      return;
+    }
+    view.innerHTML = `<div style="width:100%"><div class="cap">Everyone shake your phone!</div><div class="h1" dir="auto">${esc(s.label)}</div>
+      <div class="meter"><i id="shMeter" style="width:${Math.round(p * 100)}%"></i></div><div class="pct" id="shPct">${Math.round(p * 100)}%</div>
+      <div style="margin-top:calc(var(--u)*2);display:flex;justify-content:center">${mapHtml('small')}</div></div>`;
+    paintShake();
+  }
+  function paintShake() {
+    const L = live && live.kind === 'shake' && live.id === scene.id ? live : null;
+    if (!L) return;
+    const m = $('shMeter'); if (m) m.style.width = Math.round(L.progress * 100) + '%';
+    const p = $('shPct'); if (p) p.textContent = Math.round(L.progress * 100) + '%';
+    paintMap((n, online) => { const v = L.perSeat[n] || 0; if (!online) return null; return v > 0.05 ? `hsl(${330 - v * 290}, 95%, ${30 + v * 30}%)` : '#2a2638'; });
+  }
+
+  function drawWinner() {
+    const s = scene;
+    if (s.state === 'spinning') {
+      view.innerHTML = `<div><div class="cap">And the winner is…</div><div class="reel" id="reel">—</div>${s.prize ? `<div class="h2" dir="auto">${esc(s.prize)}</div>` : ''}</div>`;
+      return;
+    }
+    view.innerHTML = `<div><div class="cap">Winner</div><div class="huge gold pop" style="font-size:calc(var(--u)*24)">${esc(s.winner.label)}</div>${s.prize ? `<div class="h1" style="font-size:calc(var(--u)*3.6);margin-top:calc(var(--u)*1.5)" dir="auto">🎁 ${esc(s.prize)}</div>` : ''}</div>`;
+    $('frame').classList.add('flashbg'); setTimeout(() => $('frame').classList.remove('flashbg'), 900);
+  }
+
+  function drawGift() {
+    const s = scene, L = live && live.kind === 'gift' && live.id === s.id ? live : null;
+    const winners = L ? L.prizesOpened : [];
+    view.innerHTML = `<div><div class="huge" style="font-size:calc(var(--u)*11)">🎁</div><div class="h1" dir="auto">${esc(s.title)}</div>
+      <div class="h2">Open the gift on your phone · ${L ? L.opened : 0} of ${L ? L.total : '—'} opened · ${s.prizeCount} prizes hidden</div>
+      ${winners.length ? `<div class="list">${winners.slice(-8).map((w) => `<b>${esc(w.label)}</b> <span dir="auto">${esc(w.prize)}</span>`).join(' &nbsp;·&nbsp; ')}</div>` : ''}</div>`;
+  }
+
+  // ---------- socket ----------
+  socket.on('seats', (d) => {
+    seats = d.seats; $('cnt').textContent = d.online; $('max').textContent = d.max;
+    if (scene.type === 'idle') drawIdle();
+    else if (['color', 'wave', 'sparkle', 'pattern'].includes(scene.type)) startLoop();
+  });
+  socket.on('scene', (s) => {
+    const changed = s.id !== scene.id;
+    scene = s;
+    if (changed) live = null;
+    render();
+  });
+  socket.on('live', (l) => {
+    live = l;
+    if (l.id !== scene.id) return;
+    if (l.kind === 'vote') drawVote();
+    else if (l.kind === 'tap') drawTapBars();
+    else if (l.kind === 'shake') paintShake();
+    else if (l.kind === 'gift') drawGift();
+  });
+})();
+</script>
+</body>
+</html>

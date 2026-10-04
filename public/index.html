@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b0a10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Hekaya Connect</title>
+<style>
+  :root {
+    --ink: #0b0a10; --ink-2: #16141f; --ink-3: #201d2b; --line: #2e2a3b;
+    --text: #f4efe6; --muted: #a39d92; --dim: #6d685f;
+    --gold: #d9a441; --gold-2: #f2c76b; --danger: #ff5a4e; --ok: #4fd18b;
+    --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--ink); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans Arabic", "Geeza Pro", sans-serif;
+    overscroll-behavior: none; -webkit-user-select: none; user-select: none; overflow: hidden;
+    touch-action: manipulation;
+  }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  .screen { position: fixed; inset: 0; display: none; }
+  .screen.on { display: flex; }
+
+  /* ---------- Join ---------- */
+  #join {
+    flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    padding: calc(20px + var(--safe-t)) 20px calc(20px + var(--safe-b));
+    background: radial-gradient(120% 55% at 50% 0%, rgba(217,164,65,.2), transparent 60%), var(--ink);
+    overflow-y: auto;
+  }
+  .mark { font-size: 11px; letter-spacing: .4em; color: var(--gold); text-transform: uppercase; margin-bottom: 8px; }
+  h1 { font-size: 34px; line-height: 1.05; margin: 0 0 6px; font-weight: 800; letter-spacing: -.01em; }
+  h1 em { font-style: normal; color: var(--gold-2); }
+  .lede { color: var(--muted); font-size: 15px; margin: 0 0 22px; }
+  .seat-display {
+    font-size: 64px; font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums;
+    width: 210px; height: 96px; border-radius: 22px; background: var(--ink-2); border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center; margin: 6px auto 18px; color: var(--gold-2);
+  }
+  .seat-display.empty { color: #4a4552; }
+  .pick-label { font-size: 12px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; margin: 4px 0 8px; }
+  .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 340px; margin: 0 auto 10px; }
+  .chip {
+    min-width: 52px; height: 52px; border-radius: 14px; background: var(--ink-3); border: 2px solid var(--line);
+    font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .chip.on { background: var(--gold); border-color: var(--gold); color: #1b1305; }
+  .chip:active { transform: scale(.95); }
+  .btn-join {
+    margin-top: 14px; width: min(320px, 100%); height: 58px; border-radius: 16px;
+    background: var(--gold); color: #1b1305; font-size: 18px; font-weight: 800; letter-spacing: .04em;
+  }
+  .btn-join[disabled] { opacity: .35; }
+  .err { min-height: 40px; margin-top: 12px; color: var(--danger); font-size: 14px; max-width: 320px; line-height: 1.4; }
+  .foot { font-size: 12px; color: var(--dim); margin-top: 6px; }
+
+  /* ---------- Stage ---------- */
+  #stage { background: var(--ink); }
+  #bg { position: absolute; inset: 0; background: var(--ink); }
+  #bg.soft { transition: background-color 160ms linear; }
+  #content {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: calc(48px + var(--safe-t)) 22px calc(28px + var(--safe-b));
+  }
+  .tag {
+    position: absolute; top: calc(10px + var(--safe-t)); right: 12px; z-index: 3;
+    font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px; letter-spacing: .04em;
+    background: rgba(0,0,0,.3); color: rgba(255,255,255,.85); font-variant-numeric: tabular-nums;
+  }
+  .tag.light { background: rgba(0,0,0,.1); color: rgba(0,0,0,.6); }
+  .net {
+    position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(14px + var(--safe-b)); z-index: 4;
+    background: rgba(0,0,0,.75); color: #fff; font-size: 13px; padding: 8px 14px; border-radius: 999px; display: none; white-space: nowrap;
+  }
+  .net.on { display: block; }
+
+  .cap { font-size: 12px; letter-spacing: .32em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .big-seat { font-size: 112px; font-weight: 800; line-height: 1; color: var(--gold-2); font-variant-numeric: tabular-nums; }
+  .status { margin-top: 24px; font-size: 15px; display: flex; align-items: center; gap: 8px; justify-content: center; }
+  .pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .35; transform: scale(.85);} 50% { opacity: 1; transform: scale(1);} }
+  .note { color: var(--muted); max-width: 290px; line-height: 1.5; font-size: 15px; margin: 18px auto 0; }
+  .link { margin-top: 30px; color: var(--dim); font-size: 13px; text-decoration: underline; }
+
+  .msg { font-weight: 800; line-height: 1.15; word-break: break-word; max-width: 100%; }
+  .img-wrap { position: absolute; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; }
+  .img-wrap img { width: 100%; height: 100%; }
+  .img-cap { position: absolute; left: 0; right: 0; bottom: calc(22px + var(--safe-b)); font-size: 20px; font-weight: 700; padding: 0 20px; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
+
+  .count-num { font-size: 42vw; font-weight: 900; line-height: .9; font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+  .count-label { font-size: 20px; font-weight: 700; margin-bottom: 10px; color: rgba(255,255,255,.85); }
+  .count-end { font-size: 15vw; font-weight: 900; line-height: 1; }
+  .beat { animation: beat 1s ease-out; }
+  @keyframes beat { 0% { transform: scale(1.18); } 100% { transform: scale(1); } }
+
+  .q { font-size: 26px; font-weight: 800; line-height: 1.2; margin-bottom: 22px; max-width: 340px; }
+  .opts { display: flex; flex-direction: column; gap: 12px; width: min(360px, 100%); }
+  .opt {
+    min-height: 72px; border-radius: 18px; font-size: 21px; font-weight: 800; color: #fff; position: relative;
+    display: flex; align-items: center; justify-content: center; padding: 10px 50px; text-shadow: 0 1px 2px rgba(0,0,0,.35);
+    border: 3px solid transparent; transition: transform .1s, opacity .2s;
+  }
+  .opt:active { transform: scale(.97); }
+  .opt.dim { opacity: .38; }
+  .opt.mine { border-color: #fff; }
+  .opt .tick { position: absolute; right: 18px; font-size: 24px; }
+  .bar-row { text-align: left; margin-bottom: 14px; }
+  .bar-row .lab { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 6px; font-size: 16px; }
+  .bar { height: 18px; border-radius: 9px; background: var(--ink-3); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 9px; transition: width .6s ease; }
+  .small { font-size: 14px; color: var(--muted); margin-top: 16px; }
+
+  .buzz {
+    width: min(78vw, 330px); height: min(78vw, 330px); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+    font-size: 44px; font-weight: 900; letter-spacing: .04em; color: #fff;
+    background: radial-gradient(circle at 35% 30%, #ff7a6e, #d4101f 60%, #8f0612);
+    box-shadow: 0 18px 0 #5c040b, 0 30px 60px rgba(255,31,61,.35);
+    transition: transform .06s;
+  }
+  .buzz:active { transform: translateY(10px); box-shadow: 0 8px 0 #5c040b, 0 18px 40px rgba(255,31,61,.35); }
+  .buzz.wait { background: radial-gradient(circle at 35% 30%, #4a4656, #2a2733 65%); box-shadow: 0 18px 0 #15131b; font-size: 26px; color: var(--muted); }
+  .buzz small { font-size: 15px; font-weight: 600; letter-spacing: 0; margin-top: 6px; opacity: .8; }
+  .result-big { font-size: 40px; font-weight: 900; line-height: 1.1; }
+  .result-sub { font-size: 18px; margin-top: 12px; color: rgba(255,255,255,.85); }
+
+  .tap-btn {
+    width: min(84vw, 360px); height: min(84vw, 360px); border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffd36a, #e09a12 60%, #9a6205);
+    box-shadow: 0 16px 0 #6b4403; color: #1b1305; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    touch-action: manipulation;
+  }
+  .tap-btn:active { transform: translateY(8px); box-shadow: 0 8px 0 #6b4403; }
+  .tap-btn b { font-size: 92px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .tap-btn span { font-size: 18px; font-weight: 800; letter-spacing: .1em; }
+  .timer { font-size: 22px; font-weight: 800; margin-bottom: 18px; font-variant-numeric: tabular-nums; }
+
+  .meter { width: min(320px, 86vw); height: 34px; border-radius: 17px; background: rgba(255,255,255,.1); overflow: hidden; margin: 18px auto 8px; border: 2px solid rgba(255,255,255,.18); }
+  .meter i { display: block; height: 100%; background: linear-gradient(90deg, #ffb800, #ff4fa3, #8a2bff); transition: width .25s ease; }
+  .phone-ico { font-size: 96px; line-height: 1; }
+  .shaking { animation: shake .35s ease-in-out infinite; }
+  @keyframes shake { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
+  .cta { margin-top: 22px; height: 60px; padding: 0 28px; border-radius: 16px; background: var(--gold); color: #1b1305; font-size: 18px; font-weight: 800; }
+
+  .gift-box { font-size: 150px; line-height: 1; animation: wobble 1.6s ease-in-out infinite; }
+  @keyframes wobble { 0%,100% { transform: rotate(0) scale(1); } 20% { transform: rotate(-8deg) scale(1.05); } 40% { transform: rotate(8deg) scale(1.05); } 60% { transform: rotate(0) scale(1); } }
+  .pop { animation: pop .5s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes pop { 0% { transform: scale(.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .code { margin-top: 18px; font: 800 30px ui-monospace, Menlo, monospace; letter-spacing: .12em; background: rgba(0,0,0,.25); padding: 10px 18px; border-radius: 12px; display: inline-block; }
+
+  /* Secret overlay */
+  #secret {
+    position: fixed; inset: 0; z-index: 10; display: none; flex-direction: column; align-items: center; justify-content: center;
+    padding: calc(30px + var(--safe-t)) 26px calc(30px + var(--safe-b)); text-align: center; color: #fff;
+  }
+  #secret.on { display: flex; }
+  #secret .who { font-size: 13px; letter-spacing: .3em; text-transform: uppercase; opacity: .85; margin-bottom: 18px; }
+  #secret .txt { font-size: 30px; font-weight: 800; line-height: 1.25; max-width: 340px; word-break: break-word; }
+  #secret button { margin-top: 34px; height: 56px; padding: 0 36px; border-radius: 16px; background: rgba(255,255,255,.95); color: #111; font-size: 18px; font-weight: 800; }
+</style>
+</head>
+<body>
+
+<section id="join" class="screen on" aria-label="Join the show">
+  <div class="mark">Hekaya World</div>
+  <h1>Hekaya <em>Connect</em></h1>
+  <p class="lede">Your phone becomes part of the show.</p>
+  <div class="pick-label">Your seat</div>
+  <div class="seat-display empty" id="seatDisplay">—</div>
+  <div class="pick-label">Row</div>
+  <div class="chips" id="rowChips"></div>
+  <div class="pick-label" id="numLabel" style="visibility:hidden">Seat number</div>
+  <div class="chips" id="numChips"></div>
+  <button class="btn-join" id="joinBtn" disabled>JOIN</button>
+  <div class="err" id="err" role="alert"></div>
+  <div class="foot">No app, no sign-up. Turn your brightness up.</div>
+</section>
+
+<section id="stage" class="screen" aria-live="polite">
+  <div id="bg"></div>
+  <div id="content"></div>
+  <div class="tag" id="tag"></div>
+  <div class="net" id="net">Reconnecting…</div>
+</section>
+
+<div id="secret" role="alertdialog" aria-label="Private message">
+  <div class="who">🤫 Only you can see this</div>
+  <div class="txt" id="secretText" dir="auto"></div>
+  <button id="secretOk">Got it</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/effects.js"></script>
+<script src="/clock.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ord = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 >> 3 ^ 1) && n % 10] || 'th');
+
+  // ---------- Device identity & stored seat ----------
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
+  let deviceId = store('hc_device');
+  if (!deviceId) { deviceId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); store('hc_device', deviceId); }
+
+  const socket = io({ transports: ['websocket', 'polling'] });
+  const clock = HekayaClock(socket, { onSynced: (c) => { if (me.seat) socket.emit('rtt', c.rtt); } });
+
+  let layout = null;
+  let me = {};          // personal state from the server
+  let scene = { type: 'idle' };
+  let mySeat = null, myLabel = '';
+
+  // ---------- Seat picker ----------
+  let pickRow = null, pickNum = null;
+  function renderPicker() {
+    if (!layout) return;
+    $('rowChips').innerHTML = layout.rows.map((r) => `<button class="chip${r.row === pickRow ? ' on' : ''}" data-row="${r.row}">${r.row}</button>`).join('');
+    const row = layout.rows.find((r) => r.row === pickRow);
+    $('numLabel').style.visibility = row ? 'visible' : 'hidden';
+    $('numChips').innerHTML = row ? Array.from({ length: row.count }, (_, i) => `<button class="chip${i + 1 === pickNum ? ' on' : ''}" data-num="${i + 1}">${i + 1}</button>`).join('') : '';
+    const label = pickRow ? pickRow + (pickNum ? String(pickNum).padStart(2, '0') : '') : '—';
+    $('seatDisplay').textContent = label;
+    $('seatDisplay').classList.toggle('empty', !pickRow);
+    $('joinBtn').disabled = !(pickRow && pickNum);
+    $('joinBtn').textContent = pickRow && pickNum ? 'JOIN AS ' + label : 'JOIN';
+  }
+  $('rowChips').addEventListener('click', (e) => { const b = e.target.closest('[data-row]'); if (!b) return; pickRow = b.dataset.row; pickNum = null; $('err').textContent = ''; renderPicker(); });
+  $('numChips').addEventListener('click', (e) => { const b = e.target.closest('[data-num]'); if (!b) return; pickNum = Number(b.dataset.num); $('err').textContent = ''; renderPicker(); });
+
+  fetch('/api/layout').then((r) => r.json()).then((l) => {
+    layout = l;
+    const q = new URLSearchParams(location.search).get('seat');
+    const m = /^([A-Za-z]{1,2})0*(\d{1,2})$/.exec(q || '');
+    if (m && !store('hc_seat')) { pickRow = m[1].toUpperCase(); pickNum = Number(m[2]); }
+    renderPicker();
+  });
+
+  // ---------- Screen helpers ----------
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  function show(id) { for (const s of document.querySelectorAll('.screen')) s.classList.toggle('on', s.id === id); }
+  let shownBg = null;
+  function paint(color, soft) {
+    $('bg').classList.toggle('soft', !!soft);
+    if (color === shownBg) return;
+    shownBg = color;
+    $('bg').style.backgroundColor = color;
+    themeMeta.setAttribute('content', color);
+    $('tag').classList.toggle('light', HekayaFX.luminance(color) > 0.6);
+  }
+  const html = (h) => { $('content').innerHTML = h; };
+
+  // ---------- Keep the screen awake / full screen ----------
+  let wakeLock = null;
+  async function keepAwake() { try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (e) {} }
+  function goFullscreen() { const el = document.documentElement; const f = el.requestFullscreen || el.webkitRequestFullscreen; if (f) { try { const p = f.call(el); if (p && p.catch) p.catch(() => {}); } catch (e) {} } }
+  function buzzPhone(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+
+  // ---------- Animation loop (light effects, countdown, buzzer go, tap timer) ----------
+  let frame = null;
+  function loop() { frame = null; const keep = tick(); if (keep) frame = requestAnimationFrame(loop); }
+  function startLoop() { if (!frame) frame = requestAnimationFrame(loop); }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { keepAwake(); if (mySeat) startLoop(); } });
+
+  let lastDrawKey = '';
+  function tick() {
+    if (!mySeat) return false;
+    const t = clock.now();
+    const light = HekayaFX.seatColour(scene, mySeat, t);
+    switch (scene.type) {
+      case 'wave': case 'sparkle':
+        paint(light.color, scene.type === 'sparkle');
+        return !light.done;
+      case 'winner':
+        paint(light.color, true);
+        return scene.state === 'spinning';
+      case 'countdown': {
+        const left = Math.ceil((scene.endAt - t) / 1000);
+        const key = 'cd' + left;
+        if (key !== lastDrawKey) { lastDrawKey = key; drawCountdown(left); }
+        return left > -3;
+      }
+      case 'buzzer': {
+        const key = 'bz' + (scene.state === 'live' && t >= scene.goAt ? 'go' : 'wait') + JSON.stringify(me) + scene.state;
+        if (key !== lastDrawKey) { lastDrawKey = key; drawBuzzer(t); }
+        return scene.state !== 'done';
+      }
+      case 'tap': {
+        const phase = t < scene.startAt ? 'c' + Math.ceil((scene.startAt - t) / 1000) : t < scene.endAt ? 'live' : 'over';
+        const key = 'tp' + phase + scene.state;
+        if (key !== lastDrawKey) { lastDrawKey = key; drawTap(t); }
+        if (phase === 'live') { const el = $('tapLeft'); if (el) el.textContent = Math.max(0, (scene.endAt - t) / 1000).toFixed(1) + ' s'; }
+        return scene.state !== 'done';
+      }
+      default: return false;
+    }
+  }
+
+  // ---------- Render a scene ----------
+  function render() {
+    lastDrawKey = '';
+    const s = scene;
+    if (s.type !== 'shake' || s.state === 'done') stopShake();
+    if (s.type !== 'tap') { clearInterval(tapTimer); tapTimer = null; }
+    $('tag').textContent = myLabel;
+    switch (s.type) {
+      case 'color': paint(s.color, true); html(''); break;
+      case 'pattern': paint(s.map[mySeat] || s.base || '#000000', true); html(''); break;
+      case 'wave': case 'sparkle': html(''); break;
+      case 'message': {
+        paint(s.color, true);
+        const len = s.text.length;
+        const size = len < 12 ? 56 : len < 30 ? 42 : len < 70 ? 32 : len < 140 ? 26 : 21;
+        html(`<div class="msg" dir="auto" style="font-size:${size}px;color:${HekayaFX.luminance(s.color) > 0.6 ? '#111' : '#fff'}">${esc(s.text)}</div>`);
+        break;
+      }
+      case 'image':
+        paint('#000000');
+        html(`<div class="img-wrap"><img src="${esc(s.url)}" alt="" style="object-fit:${s.fit}"></div>${s.caption ? `<div class="img-cap" dir="auto">${esc(s.caption)}</div>` : ''}`);
+        break;
+      case 'countdown': paint('#0b0a10'); break;
+      case 'vote': drawVote(); break;
+      case 'buzzer': paint('#0b0a10'); break;
+      case 'tap': paint('#0b0a10'); break;
+      case 'shake': drawShake(); break;
+      case 'winner': drawWinner(); break;
+      case 'gift': drawGift(); break;
+      default: drawIdle();
+    }
+    startLoop();
+  }
+
+  function drawIdle() {
+    paint('#0b0a10');
+    html(`<div class="cap">Seat</div><div class="big-seat">${esc(myLabel)}</div>
+      <div class="status"><span class="pulse"></span>You're connected</div>
+      <p class="note">Keep this page open with the screen facing the stage. The show will take it from here.</p>
+      <button class="link" id="changeSeat">Wrong seat? Change it</button>`);
+    $('changeSeat').onclick = leaveSeat;
+  }
+
+  function drawCountdown(left) {
+    const s = scene;
+    if (left > 0) {
+      const urgent = left <= 3;
+      paint(urgent ? s.color : '#0b0a10');
+      html(`${s.label ? `<div class="count-label" dir="auto">${esc(s.label)}</div>` : ''}<div class="count-num beat" style="color:${urgent ? (HekayaFX.luminance(s.color) > .6 ? '#111' : '#fff') : s.color}">${left}</div>`);
+      if (urgent) buzzPhone(60);
+    } else {
+      paint(left === 0 ? '#ffffff' : s.color, true);
+      html(`<div class="count-end pop" dir="auto" style="color:${left === 0 ? '#111' : (HekayaFX.luminance(s.color) > .6 ? '#111' : '#fff')}">${esc(s.endText)}</div>`);
+      if (left === 0) buzzPhone([120, 60, 120]);
+    }
+  }
+
+  function drawVote() {
+    const s = scene;
+    paint('#0b0a10');
+    const mine = me.vote;
+    if (s.state === 'open') {
+      html(`<div class="q" dir="auto">${esc(s.question)}</div><div class="opts">${s.options.map((o, i) =>
+        `<button class="opt${mine != null && mine !== i ? ' dim' : ''}${mine === i ? ' mine' : ''}" data-i="${i}" style="background:${o.color}" dir="auto">${esc(o.label)}${mine === i ? '<span class="tick">✓</span>' : ''}</button>`).join('')}</div>
+        <div class="small">${mine != null ? 'Vote sent — tap another to change it' : 'Tap your choice'}</div>`);
+      $('content').querySelector('.opts').onclick = (e) => {
+        const b = e.target.closest('[data-i]'); if (!b) return;
+        me.vote = Number(b.dataset.i); drawVote(); buzzPhone(30);
+        socket.emit('vote', { id: s.id, choice: me.vote });
+      };
+    } else if (s.showResults && s.tally) {
+      const total = s.tally.reduce((a, b) => a + b, 0) || 1;
+      const max = Math.max(...s.tally);
+      html(`<div class="q" dir="auto">${esc(s.question)}</div><div style="width:min(360px,100%)">${s.options.map((o, i) =>
+        `<div class="bar-row"><div class="lab"><span dir="auto">${esc(o.label)}${s.tally[i] === max ? ' 🏆' : ''}${mine === i ? ' · you' : ''}</span><span>${Math.round(s.tally[i] / total * 100)}%</span></div>
+        <div class="bar"><i style="width:${s.tally[i] / total * 100}%;background:${o.color}"></i></div></div>`).join('')}</div>`);
+    } else {
+      html(`<div class="q" dir="auto">${esc(s.question)}</div><div class="result-big" style="font-size:28px">Voting closed</div>
+        <div class="small">${mine != null ? 'You voted <b style="color:#fff">' + esc(s.options[mine].label) + '</b>' : 'You didn’t vote this time'}. Watch the screen for the result.</div>`);
+    }
+  }
+
+  function drawBuzzer(t) {
+    const s = scene;
+    if (me.falseStart) {
+      paint('#2a0d10');
+      html(`<div class="result-big">Too early! ✋</div><div class="result-sub">You tapped before GO, so you're out of this round.</div>`);
+      return;
+    }
+    if (s.state === 'done' && s.winner) {
+      const won = s.winner.n === mySeat;
+      paint(won ? '#ffb800' : '#0b0a10');
+      if (won) { html(`<div class="result-big pop" style="color:#1b1305">YOU WERE FIRST! ⚡</div><div class="result-sub" style="color:#1b1305">${(s.winner.ms / 1000).toFixed(3)} seconds</div>`); buzzPhone([100, 50, 200]); }
+      else html(`<div class="cap">First to buzz</div><div class="big-seat">${esc(s.winner.label)}</div>
+        <div class="result-sub">${me.buzz ? `You were ${ord(me.buzz.place)} · ${(me.buzz.ms / 1000).toFixed(3)} s` : 'Better luck next round!'}</div>`);
+      return;
+    }
+    paint('#0b0a10');
+    const go = s.state === 'live' && t >= s.goAt;
+    if (me.buzzed) { html(`<div class="buzz wait">SENT<small>Waiting for results…</small></div>`); return; }
+    html(`<div class="cap">${go ? 'Now!' : 'Buzzer round'}</div><button class="buzz${go ? '' : ' wait'}" id="buzzBtn">${go ? 'TAP!' : 'WAIT…<small>Don’t tap until it turns red</small>'}</button>`);
+    if (go) buzzPhone(80);
+    $('buzzBtn').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const at = clock.now();
+      socket.emit('buzz', { id: s.id, at });
+      if (s.state === 'live' && at >= s.goAt) { me.buzzed = true; lastDrawKey = ''; }
+    });
+  }
+
+  let tapCount = 0, tapSent = 0, tapTimer = null, tapId = null;
+  function drawTap(t) {
+    const s = scene;
+    if (tapId !== s.id) { tapId = s.id; tapCount = me.taps || 0; tapSent = tapCount; }
+    const team = s.teams === 'rows' ? 'Team Row ' + myLabel[0] : s.teams === 'halves' ? null : null;
+    if (s.state === 'done') {
+      clearInterval(tapTimer); tapTimer = null;
+      const won = s.winner && s.winner.n === mySeat;
+      paint(won ? '#ffb800' : '#0b0a10');
+      const teamLine = s.teamResults && s.teamResults.length ? `<div class="result-sub">Winning team: <b>${esc(s.teamResults[0].name)}</b></div>` : '';
+      html(won ? `<div class="result-big pop" style="color:#1b1305">FASTEST FINGERS! 🏆</div><div class="result-sub" style="color:#1b1305">${tapCount} taps</div>`
+        : `<div class="cap">Winner</div><div class="big-seat">${esc(s.winner ? s.winner.label : '—')}</div><div class="result-sub">${s.winner ? s.winner.count + ' taps' : ''}</div>${teamLine}<div class="result-sub">You: <b>${tapCount}</b> taps</div>`);
+      return;
+    }
+    if (t < s.startAt) {
+      html(`<div class="cap">Tap challenge${team ? ' · ' + esc(team) : ''}</div><div class="count-num beat" style="color:var(--gold-2)">${Math.ceil((s.startAt - t) / 1000)}</div><div class="note">Get your finger ready…</div>`);
+      return;
+    }
+    if (t < s.endAt) {
+      html(`<div class="timer" id="tapLeft"></div><button class="tap-btn" id="tapBtn"><b id="tapNum">${tapCount}</b><span>TAP! TAP! TAP!</span></button>${team ? `<div class="small">${esc(team)}</div>` : ''}`);
+      $('tapBtn').addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        if (clock.now() > s.endAt) return;
+        tapCount++; $('tapNum').textContent = tapCount;
+      });
+      clearInterval(tapTimer);
+      tapTimer = setInterval(() => { if (tapCount !== tapSent) { tapSent = tapCount; socket.emit('taps', { id: s.id, count: tapCount }); } }, 150);
+      return;
+    }
+    html(`<div class="result-big">Time!</div><div class="result-sub">You tapped <b>${tapCount}</b> times. Counting…</div>`);
+    if (tapCount !== tapSent) { tapSent = tapCount; socket.emit('taps', { id: s.id, count: tapCount }); }
+  }
+
+  // ---------- SHAKE ----------
+  let shakeOn = false, shakeAcc = 0, shakeN = 0, shakeTapBoost = 0, shakeTimer = null, shakeProgress = 0, motionOk = false;
+  const motionPossible = typeof DeviceMotionEvent !== 'undefined' && window.isSecureContext;
+  function onMotion(e) {
+    const a = e.acceleration && e.acceleration.x != null ? e.acceleration : null;
+    let mag;
+    if (a) mag = Math.hypot(a.x, a.y, a.z);
+    else { const g = e.accelerationIncludingGravity || {}; mag = Math.abs(Math.hypot(g.x || 0, g.y || 0, g.z || 0) - 9.81); }
+    if (isFinite(mag)) { shakeAcc += mag; shakeN++; motionOk = true; }
+  }
+  function stopShake() {
+    shakeOn = false; clearInterval(shakeTimer); shakeTimer = null;
+    window.removeEventListener('devicemotion', onMotion);
+  }
+  async function beginShake() {
+    if (motionPossible) {
+      try { if (typeof DeviceMotionEvent.requestPermission === 'function') { const r = await DeviceMotionEvent.requestPermission(); if (r !== 'granted') throw 0; } window.addEventListener('devicemotion', onMotion); } catch (e) {}
+    }
+    shakeOn = true;
+    clearInterval(shakeTimer);
+    shakeTimer = setInterval(() => {
+      if (scene.type !== 'shake' || scene.state !== 'live') return;
+      const motionV = shakeN ? Math.min(1, (shakeAcc / shakeN) / 14) : 0;
+      const v = Math.min(1, Math.max(motionV, shakeTapBoost));
+      shakeAcc = 0; shakeN = 0; shakeTapBoost = 0;
+      socket.emit('shake', { id: scene.id, v });
+      const mine = $('myShake'); if (mine) mine.style.width = Math.round(v * 100) + '%';
+    }, 200);
+    drawShake();
+  }
+  function drawShake() {
+    const s = scene;
+    paint('#120e1c');
+    if (s.state === 'done') {
+      stopShake();
+      paint('#ffb800', true);
+      html(`<div class="phone-ico pop">🎉</div><div class="result-big" style="color:#1b1305;margin-top:14px">You did it!</div><div class="result-sub" style="color:#1b1305" dir="auto">${esc(s.label)}</div>`);
+      return;
+    }
+    const meter = `<div class="meter"><i id="shakeMeter" style="width:${Math.round(shakeProgress * 100)}%"></i></div><div class="small">Everyone together: <b id="shakePct">${Math.round(shakeProgress * 100)}%</b></div>`;
+    if (!shakeOn) {
+      html(`<div class="q" dir="auto">${esc(s.label)}</div><div class="phone-ico">📱</div>${meter}<button class="cta" id="shakeGo">Tap to start</button>`);
+      $('shakeGo').onclick = beginShake;
+      return;
+    }
+    // No motion sensor on this page (plain http, or permission refused): tap fast instead.
+    const fallback = !motionOk && (!motionPossible || motionFailed);
+    html(`<div class="q" dir="auto">${esc(s.label)}</div>
+      ${fallback ? `<button class="tap-btn" id="shakeTap" style="width:min(70vw,280px);height:min(70vw,280px)"><b style="font-size:54px">👆</b><span>TAP FAST!</span></button>`
+                 : `<div class="phone-ico shaking">📱</div><div class="note" style="margin-top:8px;font-weight:800;color:#fff">SHAKE YOUR PHONE!</div>`}
+      ${meter}<div class="meter" style="height:12px;margin-top:6px"><i id="myShake" style="width:0%"></i></div><div class="small" style="margin-top:2px">your power</div>`);
+    const tb = $('shakeTap');
+    if (tb) tb.addEventListener('pointerdown', (e) => { e.preventDefault(); shakeTapBoost = Math.min(1, shakeTapBoost + 0.34); });
+    // Sensor allowed but silent after 1.5 s → switch this phone to tapping.
+    if (!fallback && !motionOk) setTimeout(() => { if (shakeOn && !motionOk && scene.type === 'shake') { motionFailed = true; drawShake(); } }, 1500);
+  }
+  let motionFailed = false;
+
+  // ---------- WINNER ----------
+  function drawWinner() {
+    const s = scene;
+    if (s.state === 'spinning') {
+      html(`<div class="result-big" style="text-shadow:0 2px 12px rgba(0,0,0,.6)">Drawing a winner…</div>${s.prize ? `<div class="result-sub" style="text-shadow:0 2px 10px rgba(0,0,0,.7)" dir="auto">${esc(s.prize)}</div>` : ''}`);
+      return;
+    }
+    const won = s.winner && s.winner.n === mySeat;
+    if (won) {
+      buzzPhone([200, 80, 200, 80, 400]);
+      html(`<div class="phone-ico pop">🏆</div><div class="result-big" style="color:#1b1305;margin-top:10px">YOU WON!</div>${s.prize ? `<div class="result-sub" style="color:#1b1305;font-size:22px;font-weight:800" dir="auto">${esc(s.prize)}</div>` : ''}<div class="result-sub" style="color:#1b1305">Seat ${esc(myLabel)}</div>`);
+    } else {
+      html(`<div class="cap">The winner is</div><div class="big-seat pop">${esc(s.winner ? s.winner.label : '')}</div>${s.prize ? `<div class="result-sub" dir="auto">${esc(s.prize)}</div>` : ''}`);
+    }
+  }
+
+  // ---------- GIFT ----------
+  function drawGift() {
+    const s = scene, g = me.gift;
+    paint('#1a0f2e');
+    if (!g) { html(`<div class="gift-box">🎁</div><div class="note">Gifts are being handed out…</div>`); return; }
+    if (!g.opened) {
+      html(`<div class="q" dir="auto">${esc(s.title)}</div><button id="giftBtn" style="background:none"><div class="gift-box">🎁</div></button><div class="cta" style="display:inline-flex;align-items:center">Tap to open your gift</div>`);
+      const open = () => { me.gift.opened = true; buzzPhone([60, 40, 120]); socket.emit('giftOpen', { id: s.id }); drawGift(); };
+      $('giftBtn').onclick = open; $('content').querySelector('.cta').onclick = open;
+      return;
+    }
+    if (g.isPrize) {
+      paint('#ffb800', true);
+      html(`<div class="phone-ico pop">🎉</div><div class="cap" style="color:#1b1305;margin-top:10px">You won</div><div class="result-big pop" style="color:#1b1305" dir="auto">${esc(g.prize)}</div>
+        <div class="code" style="color:#1b1305">${esc(g.code)}</div><div class="result-sub" style="color:#1b1305;font-size:15px">Show this screen at the counter · Seat ${esc(myLabel)}</div>`);
+    } else {
+      html(`<div class="phone-ico pop">💛</div><div class="result-big" style="margin-top:12px" dir="auto">${esc(g.prize)}</div>`);
+    }
+  }
+
+  // ---------- SECRET ----------
+  let secretId = null;
+  function showSecret(sec) {
+    secretId = sec.id;
+    $('secret').style.background = sec.color || '#5b2bd6';
+    $('secretText').textContent = sec.text;
+    $('secret').classList.add('on');
+    buzzPhone([80, 60, 80]);
+  }
+  $('secretOk').onclick = () => { $('secret').classList.remove('on'); socket.emit('secretSeen', { id: secretId }); };
+
+  // ---------- Join / leave ----------
+  function join(seat, silent) {
+    $('joinBtn').disabled = true;
+    socket.timeout(6000).emit('join', { seat, deviceId }, (err, res) => {
+      renderPicker();
+      if (err) { if (!silent) $('err').textContent = 'Could not reach the show. Check you are on the theatre Wi-Fi and try again.'; return; }
+      if (!res.ok) { store('hc_seat', null); show('join'); $('err').textContent = res.error; return; }
+      mySeat = res.seat; myLabel = res.label; me = res.me || {}; scene = res.scene;
+      store('hc_seat', res.label);
+      clock.hint(res.serverTime);
+      $('err').textContent = '';
+      show('stage');
+      render();
+      keepAwake();
+      if (clock.rtt != null) socket.emit('rtt', clock.rtt);
+    });
+  }
+  $('joinBtn').addEventListener('click', () => { if (pickRow && pickNum) { goFullscreen(); join(pickRow + String(pickNum).padStart(2, '0')); } });
+
+  function leaveSeat() {
+    socket.emit('leave');
+    stopShake(); mySeat = null; myLabel = ''; me = {}; store('hc_seat', null);
+    pickRow = null; pickNum = null; renderPicker(); show('join');
+  }
+
+  // ---------- Live events ----------
+  socket.on('scene', (s) => {
+    const changedActivity = s.id !== scene.id;
+    scene = s;
+    if (!mySeat) return;
+    if (changedActivity) { tapId = null; shakeProgress = 0; stopShake(); }
+    if (changedActivity || !['shake'].includes(s.type) || s.state === 'done') render();
+  });
+  socket.on('me', (m) => {
+    const prev = JSON.stringify(me);
+    me = m;
+    if (!mySeat || prev === JSON.stringify(m)) return;
+    if (scene.type === 'vote') drawVote();
+    else if (scene.type === 'gift') drawGift();
+    else if (scene.type === 'buzzer') { lastDrawKey = ''; startLoop(); }
+  });
+  socket.on('live', (l) => {
+    if (l.kind === 'shake' && scene.type === 'shake' && l.id === scene.id) {
+      shakeProgress = l.progress;
+      const m = $('shakeMeter'); if (m) m.style.width = Math.round(l.progress * 100) + '%';
+      const p = $('shakePct'); if (p) p.textContent = Math.round(l.progress * 100) + '%';
+    }
+  });
+  socket.on('secret', showSecret);
+  socket.on('secretClear', () => $('secret').classList.remove('on'));
+  socket.on('reset', () => { $('secret').classList.remove('on'); stopShake(); mySeat = null; me = {}; store('hc_seat', null); pickRow = null; pickNum = null; renderPicker(); show('join'); });
+  socket.on('disconnect', () => { if (mySeat) $('net').classList.add('on'); });
+  socket.on('connect', () => {
+    $('net').classList.remove('on');
+    const s = myLabel || store('hc_seat');
+    if (s) join(s, true);
+  });
+})();
+</script>
+</body>
+</html>
